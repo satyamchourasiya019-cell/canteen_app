@@ -806,23 +806,28 @@ app.post('/api/booking-settings', async (req, res) => {
 });
 
 app.get('/api/booking-open', async (_req, res) => {
-  const row = await getDocById(C.bookingSettings, '1');
-  if (!row || !row.booking_open) return res.json({ open: false, message: row ? row.closed_message : 'Closed' });
-  // Check timer
-  if (row.timer_end) {
-    const now2 = Date.now();
-    if (now2 > row.timer_end) {
-      await setDocData(C.bookingSettings, '1', { ...row, booking_open: 0, timer_end: null, closed_message: 'Booking time is up!' });
-      return res.json({ open: false, message: 'Booking time is up!', timer_end: 0 });
+  try {
+    const row = await getDocById(C.bookingSettings, '1');
+    if (!row || !row.booking_open) return res.json({ open: false, message: row ? row.closed_message : 'Closed' });
+    const now = new Date();
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const [sh, sm] = (row.start_time || '08:00').split(':').map(Number);
+    const [eh, em] = (row.end_time || '20:00').split(':').map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin = eh * 60 + em;
+    if (cur >= startMin && cur < endMin) {
+      // Calculate remaining time in ms
+      const endTimeMs = new Date(now);
+      endTimeMs.setHours(eh, em, 0, 0);
+      const remaining = endTimeMs.getTime() - now.getTime();
+      res.json({ open: true, start_time: row.start_time, end_time: row.end_time, timer_end: endTimeMs.getTime(), remaining });
+    } else {
+      res.json({ open: false, message: row.closed_message || 'Closed' });
     }
-    return res.json({ open: true, timer_end: row.timer_end, remaining: row.timer_end - now2 });
+  } catch (err) {
+    console.error('Booking open error:', err);
+    res.status(500).json({ error: err.message });
   }
-  const now = new Date();
-  const cur = now.getHours() * 60 + now.getMinutes();
-  const [sh, sm] = (row.start_time || '08:00').split(':').map(Number);
-  const [eh, em] = (row.end_time || '20:00').split(':').map(Number);
-  if (cur >= sh * 60 + sm && cur < eh * 60 + em) res.json({ open: true, start_time: row.start_time, end_time: row.end_time });
-  else res.json({ open: false, message: row.closed_message || 'Closed' });
 });
 
 // ─── Serial Register ──────────────────────────────────────────────

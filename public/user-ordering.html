@@ -470,22 +470,56 @@
       try {
         const res = await fetch('/api/booking-open');
         const data = await res.json();
+        const timerDiv = document.getElementById('bookingTimer') || createTimerDiv();
         if (!data.open) {
-          document.getElementById('menuSection').innerHTML = `
-            <div style="text-align:center;padding:60px 20px;">
-              <div style="font-size:5rem;margin-bottom:16px;">🔒</div>
-              <h2 style="color:var(--danger);font-size:1.5rem;margin-bottom:12px;">Booking is Closed</h2>
-              <p style="color:var(--text-light);font-size:1rem;max-width:400px;margin:0 auto;line-height:1.6;">${data.message || 'Online ordering is currently not available. Please try again during operating hours.'}</p>
-              <p style="color:var(--text-light);font-size:0.85rem;margin-top:12px;">If you need to place an urgent order, please contact the canteen directly.</p>
-              <button class="btn-new-order" onclick="checkBookingOpen()" style="margin-top:20px;">🔄 Refresh</button>
-            </div>
-          `;
+          timerDiv.style.display = 'block';
+          timerDiv.innerHTML = '<div class="booking-closed">🔒 ' + (data.message || 'Booking is currently closed.') + '</div>';
+          document.getElementById('menuSection').innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:5rem;margin-bottom:16px;">🔒</div><h2 style="color:var(--danger);font-size:1.5rem;margin-bottom:12px;">Booking is Closed</h2><p style="color:var(--text-light);font-size:1rem;max-width:400px;margin:0 auto;line-height:1.6;">' + (data.message || 'Online ordering is currently not available.') + '</p><button class="btn-new-order" onclick="checkBookingOpen()" style="margin-top:20px;">🔄 Refresh</button></div>';
           document.getElementById('cartPreview').style.display = 'none';
           document.getElementById('bottomBar').style.display = 'none';
+          if (countdownInterval) clearInterval(countdownInterval);
+        } else if (data.timer_end) {
+          timerDiv.style.display = 'block';
+          startCountdown(data.timer_end);
+        } else {
+          timerDiv.style.display = 'none';
         }
       } catch(e) {
-        console.error('Error checking booking status:', e);
+        console.error('Error checking booking:', e);
       }
+    }
+
+    function createTimerDiv() {
+      const d = document.createElement('div');
+      d.id = 'bookingTimer';
+      d.style.display = 'none';
+      const header = document.querySelector('.app-header');
+      if (header && header.nextSibling) header.parentNode.insertBefore(d, header.nextSibling);
+      else document.body.insertBefore(d, document.body.firstChild);
+      return d;
+    }
+
+    let countdownInterval = null;
+    function startCountdown(endTimeMs) {
+      if (countdownInterval) clearInterval(countdownInterval);
+      const timerDiv = document.getElementById('bookingTimer') || createTimerDiv();
+      function update() {
+        const remaining = endTimeMs - Date.now();
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+          timerDiv.innerHTML = '<div class="booking-closed">⏰ Time is up! Booking closed.</div>';
+          document.getElementById('menuSection').innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:5rem;margin-bottom:16px;">⏰</div><h2 style="color:var(--danger);font-size:1.5rem;margin-bottom:12px;">Booking Time Up</h2><p style="color:var(--text-light);">Next session coming soon!</p></div>';
+          document.getElementById('bottomBar').style.display = 'none';
+          return;
+        }
+        const hrs = Math.floor(remaining / 3600000);
+        const mins = Math.floor((remaining % 3600000) / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        const display = (hrs > 0 ? String(hrs).padStart(2,'0') + ':' : '') + String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+        timerDiv.innerHTML = '<div class="booking-timer"><div class="timer-label">⏱️ Booking Closes In</div><div class="timer-value">' + display + '</div><div class="timer-sub">Order before time runs out!</div></div>';
+      }
+      update();
+      countdownInterval = setInterval(update, 1000);
     }
 
     initMenu(); updateSteps(); updateBottomBar(); checkBookingOpen(); setInterval(checkBookingOpen, 30000);

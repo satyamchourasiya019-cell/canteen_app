@@ -122,20 +122,6 @@
   </section>
 
 
-    <h3>⏱️ Booking Countdown Timer (Mobile)</h3>
-    <p class="hint-text">Set a countdown timer. Mobile users will see a live countdown on the ordering page.</p>
-    <div class="setting-row" style="margin-top:12px;">
-      <div class="setting-input" style="flex:1;min-width:150px;">
-        <label>Timer Duration (minutes)</label>
-        <input type="number" id="timerMinutes" min="1" max="480" value="30" style="padding:10px 14px;font-size:1rem;border:2px solid var(--border);border-radius:8px;width:100%;" />
-      </div>
-      <div style="display:flex;gap:8px;align-items:flex-end;">
-        <button class="btn btn-primary" onclick="startTimer()">▶️ Start Timer</button>
-        <button class="btn btn-danger" onclick="stopTimer()">⏹️ Stop</button>
-      </div>
-    </div>
-    <div id="timerStatus" style="margin-top:10px;font-weight:600;color:var(--text-light);"></div>
-
   <!-- ═══════════════ BOOKING TIMING SECTION ═══════════════ -->
   <section class="card settings-card">
     <div class="section-header">
@@ -369,6 +355,7 @@
         lunch: parseFloat(document.getElementById('priceLunch').value) || 0,
         dinner: parseFloat(document.getElementById('priceDinner').value) || 0,
         snacks: parseFloat(document.getElementById('priceSnacks').value) || 0,
+        night_snack: parseFloat(document.getElementById('priceNightSnack').value) || 25,
       };
 
       try {
@@ -392,6 +379,7 @@
 
     // ─── Booking Settings ───────────────────────────────────
     async function loadBookingSettings() {
+      // no timer UI needed
       try {
         const res = await fetch('/api/booking-settings');
         const data = await res.json();
@@ -658,38 +646,7 @@
       setTimeout(() => toast.classList.remove('show'), 2500);
     }
 
-    // ─── Booking Timer ─────────────────────────────────────
-    async function startTimer() {
-      const mins = parseInt(document.getElementById('timerMinutes').value) || 30;
-      const endTime = Date.now() + mins * 60 * 1000;
-      try {
-        await fetch('/api/booking-settings', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            booking_open: true,
-            start_time: new Date().toTimeString().substring(0,5),
-            end_time: new Date(endTime).toTimeString().substring(0,5),
-            timer_end: endTime,
-            closed_message: 'Booking time is up! Next session coming soon.'
-          })
-        });
-        document.getElementById('timerStatus').innerHTML = '✅ Timer started! Ends in <strong>' + mins + ' minutes</strong>';
-        showToast('⏱️ Timer started for ' + mins + ' min!');
-      } catch(e) { alert('Error starting timer'); }
-    }
-
-    async function stopTimer() {
-      try {
-        await fetch('/api/booking-settings', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ booking_open: false, closed_message: 'Booking is currently closed.' })
-        });
-        document.getElementById('timerStatus').innerHTML = '⏹️ Timer stopped. Booking closed.';
-        showToast('⏹️ Timer stopped!');
-      } catch(e) { alert('Error stopping timer'); }
-    }
+        }
   </script>
   <script src="/date-banner.js"></script>
   <script src="/notifications.js"></script>
