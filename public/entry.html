@@ -60,6 +60,22 @@
   </section>
 
   <!-- ═══════════════ ENTRY FORM (hidden until loaded) ═══════════════ -->
+  
+    <!-- ═══════════════ ENTRY CALENDAR ═══════════════ -->
+    <section class="card entry-card" id="calendarSection" style="display:none;">
+      <h3 style="margin-bottom:12px;">📅 My Entry Calendar</h3>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <button class="btn btn-secondary btn-sm" onclick="calNav(-1)">◀ Prev</button>
+        <span id="calMonthLabel" style="font-weight:700;font-size:1rem;min-width:150px;text-align:center;"></span>
+        <button class="btn btn-secondary btn-sm" onclick="calNav(1)">Next ▶</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <span style="font-size:0.8rem;display:flex;align-items:center;gap:4px;"><span style="width:16px;height:16px;background:#059669;border-radius:4px;display:inline-block;"></span> Eaten</span>
+        <span style="font-size:0.8rem;display:flex;align-items:center;gap:4px;"><span style="width:16px;height:16px;background:#e2e8f0;border-radius:4px;display:inline-block;"></span> No Entry</span>
+        <span style="font-size:0.8rem;display:flex;align-items:center;gap:4px;"><span style="width:16px;height:16px;background:#dbeafe;border-radius:4px;display:inline-block;"></span> Today</span>
+      </div>
+      <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+    </section>
   <section class="card entry-card" id="entrySection" style="display:none;">
     <div class="entry-header">
       <h2 id="entryTitle">Today's Entry</h2>
@@ -120,6 +136,16 @@
           <button class="qty-btn minus" onclick="changeQty('snacks_qty',-1)">−</button>
           <span class="qty-val" id="val_snacks_qty">0</span>
           <button class="qty-btn plus" onclick="changeQty('snacks_qty',1)">+</button>
+        </div>
+      </div>
+      <div class="food-item" data-key="night_snack_qty">
+        <span class="food-icon">🌙</span>
+        <span class="food-name">Night Snack</span>
+        <span class="food-price" id="price_night_snack"></span>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('night_snack_qty',-1)">−</button>
+          <span class="qty-val" id="val_night_snack_qty">0</span>
+          <button class="qty-btn plus" onclick="changeQty('night_snack_qty',1)">+</button>
         </div>
       </div>
     </div>
@@ -244,8 +270,8 @@
     let isEditMode = false;
     let empName = '';
     // savedQty tracks what was saved previously (for add-only enforcement)
-    let savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
-    let qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
+    let savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0 };
+    let qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0 };
 
     const monthNames = [
       'January','February','March','April','May','June',
@@ -298,6 +324,71 @@
       // Auto-fetch employee name
       fetchEmployeeName(empNo);
       loadEntryData(empNo, currentDate);
+    }
+
+    
+    // ─── Calendar State ──────────────────────────────────
+    let calYear, calMonth;
+
+    async function loadCalendar(empNo) {
+      const now = new Date();
+      calYear = now.getFullYear();
+      calMonth = now.getMonth() + 1;
+      renderCalendar(empNo);
+    }
+
+    async function renderCalendar(empNo) {
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      document.getElementById('calMonthLabel').textContent = months[calMonth - 1] + ' ' + calYear;
+
+      // Get entry dates
+      let entryDates = {};
+      try {
+        const res = await fetch('/api/calendar/' + empNo + '/' + calYear + '/' + calMonth);
+        const data = await res.json();
+        for (const d of (data.dates || [])) entryDates[d.date] = d.total;
+      } catch(e) {}
+
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+      const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+      const firstDay = new Date(calYear, calMonth - 1, 1).getDay();
+
+      let html = '';
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      for (const d of dayNames) html += '<div style="text-align:center;font-weight:700;font-size:0.75rem;color:var(--text-light);padding:4px;">' + d + '</div>';
+
+      // Empty cells before first day
+      for (let i = 0; i < firstDay; i++) html += '<div></div>';
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = calYear + '-' + String(calMonth).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+        const isToday = dateStr === todayStr;
+        const hasEntry = entryDates[dateStr] !== undefined;
+        let bg = '#fff', border = '2px solid #e2e8f0', color = '#64748b', cursor = 'pointer';
+        if (hasEntry) { bg = '#d1fae5'; border = '2px solid #059669'; color = '#065f46'; }
+        if (isToday) { bg = '#dbeafe'; border = '2px solid #2563eb'; color = '#1e40af'; }
+        if (hasEntry && isToday) { bg = '#d1fae5'; border = '2px solid #059669'; color = '#065f46'; }
+
+        const totalStr = hasEntry ? '<div style="font-size:0.6rem;font-weight:700;">₹' + entryDates[dateStr] + '</div>' : '';
+        html += '<div onclick="loadCalDate('' + dateStr + '')" style="text-align:center;padding:6px 2px;border-radius:8px;background:' + bg + ';border:' + border + ';color:' + color + ';cursor:' + cursor + ';font-weight:600;font-size:0.85rem;transition:all 0.15s;">' + day + totalStr + '</div>';
+      }
+
+      document.getElementById('calGrid').innerHTML = html;
+    }
+
+    function calNav(dir) {
+      calMonth += dir;
+      if (calMonth > 12) { calMonth = 1; calYear++; }
+      if (calMonth < 1) { calMonth = 12; calYear--; }
+      if (currentEmp) renderCalendar(currentEmp);
+    }
+
+    function loadCalDate(dateStr) {
+      if (!currentEmp) return;
+      currentDate = dateStr;
+      document.getElementById('entryDate').value = dateStr;
+      loadEntryData(currentEmp, dateStr);
     }
 
     async function fetchEmployeeName(empNo) {
@@ -356,6 +447,7 @@
       qty.lunch_qty      = entry.lunch_qty || 0;
       qty.dinner_qty     = entry.dinner_qty || 0;
       qty.snacks_qty     = entry.snacks_qty || 0;
+      qty.night_snack_qty = entry.night_snack_qty || 0;
 
       // Save original values for add-only enforcement
       savedQty = { ...qty };
@@ -365,12 +457,13 @@
       document.getElementById('val_lunch_qty').textContent      = qty.lunch_qty;
       document.getElementById('val_dinner_qty').textContent     = qty.dinner_qty;
       document.getElementById('val_snacks_qty').textContent     = qty.snacks_qty;
+      document.getElementById('val_night_snack_qty').textContent = qty.night_snack_qty;
 
       document.getElementById('otherDesc').value = entry.other_description || '';
       document.getElementById('otherAmt').value  = entry.other_amount || 0;
 
       isExistingEntry = (entry.tea_qty > 0 || entry.breakfast_qty > 0 || entry.lunch_qty > 0 ||
-                         entry.dinner_qty > 0 || entry.snacks_qty > 0 || entry.other_amount > 0);
+                         entry.dinner_qty > 0 || entry.snacks_qty > 0 || entry.night_snack_qty > 0 || entry.other_amount > 0);
 
       const dateParts = date.split('-');
       const dateLabel = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
@@ -480,6 +573,7 @@
         qty.lunch_qty * prices.lunch +
         qty.dinner_qty * prices.dinner +
         qty.snacks_qty * prices.snacks +
+                     qty.night_snack_qty * (prices.night_snack || 25) +
         (parseFloat(document.getElementById('otherAmt').value) || 0);
       document.getElementById('dailyTotal').textContent = `₹${t.toLocaleString('en-IN')}`;
     }
@@ -504,6 +598,7 @@
         { name: '🍛 Lunch', qty: qty.lunch_qty, rate: prices.lunch },
         { name: '🍲 Dinner', qty: qty.dinner_qty, rate: prices.dinner },
         { name: '🍪 Snacks', qty: qty.snacks_qty, rate: prices.snacks },
+        { name: '🌙 Night Snack', qty: qty.night_snack_qty, rate: prices.night_snack || 25 },
       ];
 
       for (const item of items) {
@@ -557,6 +652,7 @@
         lunch_qty: qty.lunch_qty,
         dinner_qty: qty.dinner_qty,
         snacks_qty: qty.snacks_qty,
+        night_snack_qty: qty.night_snack_qty,
         other_description: document.getElementById('otherDesc').value,
         other_amount: parseFloat(document.getElementById('otherAmt').value) || 0,
       };
@@ -610,13 +706,14 @@
           showToast('🗑️ Entry Deleted Successfully!');
           isExistingEntry = false;
           isEditMode = false;
-          savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
-          qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
+          savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0 };
+          qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0 };
           document.getElementById('val_tea_qty').textContent = 0;
           document.getElementById('val_breakfast_qty').textContent = 0;
           document.getElementById('val_lunch_qty').textContent = 0;
           document.getElementById('val_dinner_qty').textContent = 0;
           document.getElementById('val_snacks_qty').textContent = 0;
+          document.getElementById('val_night_snack_qty').textContent = 0;
           document.getElementById('otherDesc').value = '';
           document.getElementById('otherAmt').value = 0;
           enableFullMode();

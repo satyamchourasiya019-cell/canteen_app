@@ -112,7 +112,7 @@ async function countDocs(collName, filters = []) {
 // ═══════════════════════════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════════════════════════
-let PRICES = { tea: 10, breakfast: 30, lunch: 80, dinner: 80, snacks: 20 };
+let PRICES = { tea: 10, breakfast: 30, lunch: 80, dinner: 80, snacks: 20, night_snack: 25 };
 
 async function loadPrices() {
   const rows = await getAll(C.settings);
@@ -267,7 +267,7 @@ app.post('/api/prices', async (req, res) => {
   const { prices } = req.body;
   if (!prices) return res.status(400).json({ error: 'Invalid' });
   for (const [k, v] of Object.entries(prices)) {
-    if (['tea','breakfast','lunch','dinner','snacks'].includes(k)) {
+    if (['tea','breakfast','lunch','dinner','snacks','night_snack'].includes(k)) {
       await setDocData(C.settings, k, { key: k, value: parseFloat(v) || 0 });
       PRICES[k] = parseFloat(v) || 0;
     }
@@ -326,7 +326,7 @@ app.get('/api/entry/:empNo', async (req, res) => {
   if (row) return res.json(row);
   const now = new Date();
   res.json({ employee_number: empNo, entry_date: today, entry_month: now.getMonth() + 1, entry_year: now.getFullYear(),
-    tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, other_description: '', other_amount: 0, daily_total: 0 });
+    tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0, other_description: '', other_amount: 0, daily_total: 0 });
 });
 
 app.get('/api/entry/:empNo/:date', async (req, res) => {
@@ -346,7 +346,7 @@ app.get('/api/entry/:empNo/:date', async (req, res) => {
 app.post('/api/entry', async (req, res) => {
   try {
     await loadPrices();
-    const { employee_number, entry_date, tea_qty, breakfast_qty, lunch_qty, dinner_qty, snacks_qty, other_description, other_amount } = req.body;
+    const { employee_number, entry_date, tea_qty, breakfast_qty, lunch_qty, dinner_qty, snacks_qty, night_snack_qty, other_description, other_amount } = req.body;
     if (!employee_number || employee_number < 1 || employee_number > 300) return res.status(400).json({ error: 'Invalid employee number' });
 
     let entryDate, currentMonth, currentYear;
@@ -363,18 +363,19 @@ app.post('/api/entry', async (req, res) => {
     }
 
     const tQ = parseInt(tea_qty) || 0;
+    const nsQ = parseInt(night_snack_qty) || 0;
     const bQ = parseInt(breakfast_qty) || 0;
     const lQ = parseInt(lunch_qty) || 0;
     const dQ = parseInt(dinner_qty) || 0;
     const sQ = parseInt(snacks_qty) || 0;
     const oAmt = parseFloat(other_amount) || 0;
 
-    const dailyTotal = tQ * (PRICES.tea || 10) + bQ * (PRICES.breakfast || 30) + lQ * (PRICES.lunch || 80) + dQ * (PRICES.dinner || 80) + sQ * (PRICES.snacks || 20) + oAmt;
+    const dailyTotal = tQ * (PRICES.tea || 10) + nsQ * (PRICES.night_snack || 25) + bQ * (PRICES.breakfast || 30) + lQ * (PRICES.lunch || 80) + dQ * (PRICES.dinner || 80) + sQ * (PRICES.snacks || 20) + oAmt;
 
     const docId = `${employee_number}_${entryDate}`;
     await setDocData(C.entries, docId, {
       employee_number, entry_date: entryDate, entry_month: currentMonth, entry_year: currentYear,
-      tea_qty: tQ, breakfast_qty: bQ, lunch_qty: lQ, dinner_qty: dQ, snacks_qty: sQ,
+      tea_qty: tQ, breakfast_qty: bQ, lunch_qty: lQ, dinner_qty: dQ, snacks_qty: sQ, night_snack_qty: nsQ,
       other_description: other_description || '', other_amount: oAmt, daily_total: dailyTotal,
       created_at: nowStr(),
     });
@@ -404,6 +405,27 @@ app.delete('/api/entry/:empNo/:date', async (req, res) => {
   res.json({ success: true });
 });
 
+
+
+// ─── Calendar: get all entry dates for employee in a month ─────
+app.get('/api/calendar/:empNo/:year/:month', async (req, res) => {
+  try {
+    const empNo = parseInt(req.params.empNo, 10);
+    const year = parseInt(req.params.year, 10);
+    const month = parseInt(req.params.month, 10);
+    if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+    const allEntries = await getAll(C.entries, [
+      { field: 'employee_number', op: '==', value: empNo },
+      { field: 'entry_year', op: '==', value: year },
+      { field: 'entry_month', op: '==', value: month },
+    ]);
+    const dates = allEntries.map(e => ({ date: e.entry_date, total: e.daily_total }));
+    res.json({ employee_number: empNo, year, month, dates });
+  } catch (err) {
+    console.error('Calendar error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 // ─── History (current month for employee) ─────────────────────────
 app.get('/api/history/:empNo', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
