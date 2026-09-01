@@ -49,7 +49,7 @@ const C = {
   bookingSettings: 'booking_settings',
 };
 
-// Get all docs from a collection with optional filters
+// Get all docs - NO orderBy in Firestore (avoids composite index issues)
 async function getAll(collName, filters = [], orderField = null, orderAsc = true, limitN = null) {
   let q = collection(db, collName);
   const constraints = [];
@@ -58,11 +58,15 @@ async function getAll(collName, filters = [], orderField = null, orderAsc = true
       constraints.push(where(f.field, f.op, f.value));
     }
   }
-  if (orderField) constraints.push(orderBy(orderField, orderAsc ? 'asc' : 'desc'));
-  if (limitN) constraints.push(limit(limitN));
   if (constraints.length > 0) q = query(q, ...constraints);
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  let results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  if (orderField) results.sort((a, b) => {
+    const av = a[orderField] || 0, bv = b[orderField] || 0;
+    return orderAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+  if (limitN) results = results.slice(0, limitN);
+  return results;
 }
 
 // Get a single doc by ID
