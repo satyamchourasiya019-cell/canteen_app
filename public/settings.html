@@ -326,20 +326,18 @@
     async function loadPrices() {
       const res = await fetch('/api/prices');
       const prices = await res.json();
-
       document.getElementById('priceTea').value = prices.tea;
       document.getElementById('priceBreakfast').value = prices.breakfast;
       document.getElementById('priceLunch').value = prices.lunch;
       document.getElementById('priceDinner').value = prices.dinner;
+      document.getElementById('priceSnacks').value = prices.snacks;
       document.getElementById('priceNightSnack').value = prices.night_snack || 25;
-        document.getElementById('priceSnacks').value = prices.snacks;
-      document.getElementById('priceNightSnack').value = prices.night_snack || 25;
-
       document.getElementById('currentTea').textContent = `Current: ₹${prices.tea}`;
       document.getElementById('currentBreakfast').textContent = `Current: ₹${prices.breakfast}`;
       document.getElementById('currentLunch').textContent = `Current: ₹${prices.lunch}`;
       document.getElementById('currentDinner').textContent = `Current: ₹${prices.dinner}`;
       document.getElementById('currentSnacks').textContent = `Current: ₹${prices.snacks}`;
+      document.getElementById('currentNightSnack').textContent = `Current: ₹${prices.night_snack || 25}`;
     }
 
     function resetPriceForm() { loadPrices(); }
