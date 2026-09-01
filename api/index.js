@@ -500,6 +500,47 @@ app.get('/api/records/:empNo/:year', async (req, res) => {
   res.json({ employee_number: empNo, year, monthly_data: monthlyData, yearly_total: yearlyTotal, h1_total: h1, h2_total: h2 });
 });
 
+// ─── Pending (all employees) ──────────────────────────────────────
+app.get('/api/payments/pending/all/:year', async (req, res) => {
+  try {
+    const year = parseInt(req.params.year, 10);
+    if (!year) return res.status(400).json({ error: 'Year required' });
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const maxMonth = (year === now.getFullYear()) ? currentMonth : 12;
+
+    const allEmpEntries = await getAll(C.entries, [{ field: 'entry_year', op: '==', value: year }]);
+    const empNos = [...new Set(allEmpEntries.map(e => e.employee_number))].sort((a, b) => a - b);
+    const results = [];
+
+    for (const empNo of empNos) {
+      let totalBill = 0, totalPaid = 0;
+      for (let m = 1; m <= maxMonth; m++) {
+        if (m > 1) await processCarryForward(empNo, m - 1, year, m, year);
+        else if (year > 2020) await processCarryForward(empNo, 12, year - 1, 1, year);
+        const bill = await calcMonthBill(empNo, m, year);
+        totalBill += bill.total_bill;
+        const payData = await getAll(C.payments, [
+          { field: 'employee_number', op: '==', value: empNo },
+          { field: 'month', op: '==', value: m },
+          { field: 'year', op: '==', value: year },
+        ]);
+        totalPaid += payData.reduce((s, p) => s + (p.amount_paid || 0), 0);
+      }
+      const pending = Math.max(0, totalBill - totalPaid);
+      if (pending > 0 || totalBill > 0) {
+        const empRow = await getDocById(C.employees, empNo);
+        results.push({ employee_number: empNo, employee_name: empRow ? empRow.name : '', total_bill: totalBill, total_paid: totalPaid, total_pending: pending });
+      }
+    }
+    const grandTotalPending = results.reduce((s, r) => s + r.total_pending, 0);
+    res.json({ year, employees: results, count: results.length, grand_total_pending: grandTotalPending });
+  } catch (err) {
+    console.error('Pending fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Payments ─────────────────────────────────────────────────────
 app.get('/api/payments/:empNo/:year/:month', async (req, res) => {
   try {
@@ -556,47 +597,6 @@ app.post('/api/payments', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Payment save error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── Pending (all employees) ──────────────────────────────────────
-app.get('/api/payments/pending/all/:year', async (req, res) => {
-  try {
-    const year = parseInt(req.params.year, 10);
-    if (!year) return res.status(400).json({ error: 'Year required' });
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const maxMonth = (year === now.getFullYear()) ? currentMonth : 12;
-
-    const allEmpEntries = await getAll(C.entries, [{ field: 'entry_year', op: '==', value: year }]);
-    const empNos = [...new Set(allEmpEntries.map(e => e.employee_number))].sort((a, b) => a - b);
-    const results = [];
-
-    for (const empNo of empNos) {
-      let totalBill = 0, totalPaid = 0;
-      for (let m = 1; m <= maxMonth; m++) {
-        if (m > 1) await processCarryForward(empNo, m - 1, year, m, year);
-        else if (year > 2020) await processCarryForward(empNo, 12, year - 1, 1, year);
-        const bill = await calcMonthBill(empNo, m, year);
-        totalBill += bill.total_bill;
-        const payData = await getAll(C.payments, [
-          { field: 'employee_number', op: '==', value: empNo },
-          { field: 'month', op: '==', value: m },
-          { field: 'year', op: '==', value: year },
-        ]);
-        totalPaid += payData.reduce((s, p) => s + (p.amount_paid || 0), 0);
-      }
-      const pending = Math.max(0, totalBill - totalPaid);
-      if (pending > 0 || totalBill > 0) {
-        const empRow = await getDocById(C.employees, empNo);
-        results.push({ employee_number: empNo, employee_name: empRow ? empRow.name : '', total_bill: totalBill, total_paid: totalPaid, total_pending: pending });
-      }
-    }
-    const grandTotalPending = results.reduce((s, r) => s + r.total_pending, 0);
-    res.json({ year, employees: results, count: results.length, grand_total_pending: grandTotalPending });
-  } catch (err) {
-    console.error('Pending fetch error:', err);
     res.status(500).json({ error: err.message });
   }
 });
