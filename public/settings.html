@@ -509,18 +509,20 @@
         let html = '';
         items.forEach((item, i) => {
           const availBadge = item.available ? '<span style="color:var(--accent);font-weight:700;">✅ Yes</span>' : '<span style="color:var(--danger);font-weight:700;">❌ No</span>';
-          html += `<tr>
-            <td>${i + 1}</td>
-            <td style="font-size:1.5rem;text-align:center;">${item.icon}</td>
-            <td style="font-weight:700;">${item.name}</td>
-            <td style="font-weight:700;">₹${item.price}</td>
-            <td>${availBadge}</td>
-            <td>
-              <button class="btn btn-primary btn-sm" onclick="editMenuItem(${item.id})" style="margin-right:6px;">✏️</button>
-              <button class="btn btn-secondary btn-sm" onclick="toggleAvailability(${item.id}, ${item.available})" style="margin-right:6px;">${item.available ? '🙈 Hide' : '👁️ Show'}</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteMenuItem(${item.id}, '${item.name}')">🗑️</button>
-            </td>
-          </tr>`;
+          const safeName = (item.name || '').replace(/'/g, "\\\'").replace(/"/g, '&quot;');
+          const sid = String(item.id);
+          html += '<tr>' +
+            '<td>' + (i + 1) + '</td>' +
+            '<td style="font-size:1.5rem;text-align:center;">' + item.icon + '</td>' +
+            '<td style="font-weight:700;">' + item.name + '</td>' +
+            '<td style="font-weight:700;">₹' + item.price + '</td>' +
+            '<td>' + availBadge + '</td>' +
+            '<td>' +
+              '<button class="btn btn-primary btn-sm" onclick="editMenuItem(\'' + sid + '\')" style="margin-right:6px;">✏️</button>' +
+              '<button class="btn btn-secondary btn-sm" onclick="toggleAvailability(\'' + sid + '\', ' + item.available + ')" style="margin-right:6px;">' + (item.available ? '🙈 Hide' : '👁️ Show') + '</button>' +
+              '<button class="btn btn-danger btn-sm" onclick="deleteMenuItem(\'' + sid + '\', \'' + safeName + '\')">🗑️</button>' +
+            '</td>' +
+          '</tr>';
         });
         tbody.innerHTML = html;
       } catch (e) {
