@@ -844,20 +844,28 @@ app.post('/api/serial-register', async (req, res) => {
 });
 
 app.post('/api/serial-register/:serialNo/leave', async (req, res) => {
-  const sn = parseInt(req.params.serialNo, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
-  const existing = await getDocById(C.serialRegister, String(sn));
-  if (!existing) return res.status(404).json({ error: 'Not found' });
-  if (existing.status !== 'Active') return res.status(400).json({ error: 'No active employee' });
-  const ld = req.body.leaving_date || new Date().toISOString().substring(0, 10);
-  await addDocData(C.serialHistory, {
-    serial_no: sn, employee_name: existing.employee_name || '', phone_number: existing.phone_number || '',
-    department: existing.department || '', joining_date: existing.joining_date || '', leaving_date: ld,
-    status: 'Left Company', closed_at: nowStr(),
-  });
-  // Save to history, then reset to Vacant
-  await setDocData(C.serialRegister, String(sn), { serial_no: sn, employee_name: '', phone_number: '', department: '', status: 'Vacant', joining_date: '', leaving_date: '', current_employee: '' });
-  res.json({ success: true, data: { serial_no: sn, status: 'Vacant' } });
+  try {
+    const sn = parseInt(req.params.serialNo, 10);
+    if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+    const existing = await getDocById(C.serialRegister, String(sn));
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    if (existing.status !== 'Active') return res.status(400).json({ error: 'No active employee' });
+    const ld = req.body.leaving_date || new Date().toISOString().substring(0, 10);
+    // Save to history first
+    try {
+      await addDocData(C.serialHistory, {
+        serial_no: sn, employee_name: existing.employee_name || '', phone_number: existing.phone_number || '',
+        department: existing.department || '', joining_date: existing.joining_date || '', leaving_date: ld,
+        status: 'Left Company', closed_at: nowStr(),
+      });
+    } catch (histErr) { console.error('History save error:', histErr.message); }
+    // Reset to Vacant
+    await setDocData(C.serialRegister, String(sn), { serial_no: sn, employee_name: '', phone_number: '', department: '', status: 'Vacant', joining_date: '', leaving_date: '', current_employee: '' });
+    res.json({ success: true, data: { serial_no: sn, status: 'Vacant' } });
+  } catch (err) {
+    console.error('Leave error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/serial-register/:serialNo/new-record', async (req, res) => {

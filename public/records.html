@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Digital Canteen Book – All Records</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#667eea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Canteen Book" />
+  <link rel="apple-touch-icon" href="/logo.svg" />
+  <meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
   <!-- ═══════════════ HEADER ═══════════════ -->
@@ -364,5 +371,6 @@
       window.location.href = `/api/export/gross/${year}/${month}`;
     }
   </script>
+  <script src="/notifications.js"></script>
 </body>
 </html>
