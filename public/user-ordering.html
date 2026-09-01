@@ -10,14 +10,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Canteen Order" />
-  <link rel="apple-touch-icon" href="/icon-192.png" />
-  <link rel="apple-touch-icon" sizes="152x152" href="/icon-512.png" />
+  <link rel="apple-touch-icon" href="/logo.svg" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/logo.svg" />
   <meta name="description" content="Order food from your company canteen directly from your phone" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="msapplication-TileColor" content="#2563eb" />
-  <meta name="msapplication-TileImage" content="/icon-192.png" />
+  <meta name="msapplication-TileImage" content="/logo.svg" />
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{--bg:#f0f2f5;--card:#fff;--primary:#2563eb;--primary-dark:#1d4ed8;--accent:#059669;--accent-dark:#047857;--danger:#dc2626;--text:#1e293b;--text-light:#64748b;--border:#e2e8f0;--radius:12px}
@@ -470,6 +470,11 @@
     }
 
     initMenu(); updateSteps(); updateBottomBar(); checkBookingOpen();
+
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
   </script>
 </body>
 </html>

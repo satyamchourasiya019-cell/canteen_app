@@ -1,21 +1,17 @@
 {
   "name": "canteen-app",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Digital Canteen Book",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
+    "firebase": "^11.10.0",
     "multer": "^2.3.0",
-    "sql.js": "^1.14.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

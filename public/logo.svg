@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa"/>
+      <stop offset="100%" style="stop-color:#e9ecef"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
+  <!-- Plate -->
+  <ellipse cx="256" cy="290" rx="160" ry="50" fill="url(#plate)" stroke="#dee2e6" stroke-width="2"/>
+  <ellipse cx="256" cy="285" rx="145" ry="43" fill="white" opacity="0.5"/>
+  <!-- Dome/Cloche -->
+  <path d="M 110 285 Q 110 170 256 140 Q 402 170 402 285" fill="#c0c0c0" stroke="#a0a0a0" stroke-width="2"/>
+  <path d="M 120 285 Q 120 180 256 152 Q 392 180 392 285" fill="url(#plate)" opacity="0.8"/>
+  <!-- Handle -->
+  <ellipse cx="256" cy="145" rx="25" ry="12" fill="#808080" stroke="#666" stroke-width="2"/>
+  <!-- Steam lines -->
+  <path d="M 220 120 Q 215 95 225 70" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M 256 115 Q 251 85 261 55" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 292 120 Q 287 95 297 70" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <!-- Fork -->
+  <g transform="translate(120, 230) rotate(-25)">
+    <rect x="-3" y="0" width="6" height="70" rx="3" fill="#b0b0b0"/>
+    <rect x="-10" y="-15" width="4" height="25" rx="2" fill="#b0b0b0"/>
+    <rect x="-2" y="-15" width="4" height="25" rx="2" fill="#b0b0b0"/>
+    <rect x="6" y="-15" width="4" height="25" rx="2" fill="#b0b0b0"/>
+  </g>
+  <!-- Knife -->
+  <g transform="translate(392, 230) rotate(25)">
+    <rect x="-3" y="0" width="6" height="70" rx="3" fill="#b0b0b0"/>
+    <path d="M -3 -15 L 3 -15 L 5 5 L -5 5 Z" fill="#c0c0c0"/>
+  </g>
+  <!-- Text -->
+  <text x="256" y="390" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="2">CANTEEN</text>
+  <text x="256" y="425" font-family="Arial, sans-serif" font-size="20" fill="rgba(255,255,255,0.8)" text-anchor="middle" letter-spacing="4">BOOK</text>
+</svg>

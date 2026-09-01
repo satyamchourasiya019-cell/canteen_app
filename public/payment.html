@@ -322,16 +322,14 @@
         } else {
           let html = '';
           for (const p of data.payment_history) {
-            const billRes = await fetch(`/api/payments/${empNo}/${p.year}/${p.month}`);
-            const billData = await billRes.json();
             let statusHtml = '';
             if (p.status === 'paid') statusHtml = '<span style="color:#059669;font-weight:700;">✅ Paid</span>';
             else if (p.status === 'partial') statusHtml = '<span style="color:#d97706;font-weight:700;">🔄 Partial</span>';
             else statusHtml = '<span style="color:#dc2626;font-weight:700;">❌ Unpaid</span>';
-
+            const billTotal = p.total_bill || p.amount_paid || 0;
             html += `<tr>
               <td class="date-cell">${monthNames[p.month]} ${p.year}</td>
-              <td>₹${billData.total_bill.toLocaleString('en-IN')}</td>
+              <td>₹${billTotal.toLocaleString('en-IN')}</td>
               <td class="total-cell">₹${p.amount_paid.toLocaleString('en-IN')}</td>
               <td>${statusHtml}</td>
               <td>${p.note || '—'}</td>
