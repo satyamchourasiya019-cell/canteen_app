@@ -6,7 +6,7 @@ const express = require('express');
 const path = require('path');
 const { initializeApp } = require('firebase/app');
 const {
-  getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, startAfter, enableIndexedDbPersistence
 } = require('firebase/firestore');
 
@@ -83,7 +83,7 @@ async function setDocData(collName, docId, data) {
 
 // Add a new doc with auto-ID
 async function addDocData(collName, data) {
-  const ref = await setDoc(doc(collection(db, collName)), data);
+  const ref = await addDoc(collection(db, collName), data);
   return ref.id;
 }
 
