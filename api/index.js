@@ -1,7 +1,7 @@
 // Vercel-compatible server using sql.js (pure JavaScript SQLite)
 // No native modules required - works in Vercel serverless functions
 const express = require('express');
-const initSqlJs = require('sql.js');
+const initSqlJs = require('sql.js/dist/sql-asm.js');
 const multer = require('multer');
 const path = require('path');
 
