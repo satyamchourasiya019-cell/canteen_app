@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Employee Serial Register</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .sr-stats{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .sr-stat{flex:1;min-width:140px;background:#f8fafc;border:2px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+    .sr-stat .stat-val{font-size:1.8rem;font-weight:800;margin-top:4px}
+    .sr-stat .stat-label{font-size:0.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px}
+    .sr-stat.active .stat-val{color:var(--accent)}
+    .sr-stat.vacant .stat-val{color:var(--primary)}
+    .sr-stat.left .stat-val{color:#ea580c}
+    .sr-stat.total .stat-val{color:var(--text)}
+    .sr-controls{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+    .sr-controls input,.sr-controls select{padding:10px 14px;font-size:0.95rem;font-weight:600;border:2px solid var(--border);border-radius:8px;outline:none}
+    .sr-controls input{flex:1;min-width:200px}
+    .sr-controls input:focus,.sr-controls select:focus{border-color:var(--primary)}
+    .sr-badge{display:inline-block;padding:4px 12px;border-radius:16px;font-size:0.75rem;font-weight:700;text-transform:uppercase}
+    .sr-badge.active{background:#d1fae5;color:#065f46;border:2px solid #6ee7b7}
+    .sr-badge.vacant{background:#dbeafe;color:#1e40af;border:2px solid #93c5fd}
+    .sr-badge.left{background:#fee2e2;color:#991b1b;border:2px solid #fca5a5}
+    .sr-table{width:100%;border-collapse:collapse;font-size:0.85rem}
+    .sr-table th{background:#f1f5f9;padding:10px 8px;text-align:left;font-weight:700;color:var(--text-light);border-bottom:2px solid var(--border);white-space:nowrap;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px}
+    .sr-table td{padding:8px;border-bottom:1px solid var(--border)}
+    .sr-table tr:hover{background:#f8fafc}
+    .sr-table .sr-no{font-weight:800;color:var(--primary);min-width:40px}
+    .sr-actions{display:flex;gap:4px;flex-wrap:wrap}
+    .sr-actions button{padding:4px 10px;font-size:0.75rem;font-weight:700;border:none;border-radius:6px;cursor:pointer;transition:all 0.15s}
+    .sr-btn-assign{background:var(--accent);color:#fff}
+    .sr-btn-assign:hover{background:var(--accent-dark)}
+    .sr-btn-edit{background:#6366f1;color:#fff}
+    .sr-btn-edit:hover{background:#4f46e5}
+    .sr-btn-leave{background:#ea580c;color:#fff}
+    .sr-btn-leave:hover{background:#c2410c}
+    .sr-btn-history{background:var(--primary);color:#fff}
+    .sr-btn-history:hover{background:var(--primary-dark)}
+    .sr-pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap}
+    .sr-pagination button{padding:8px 14px;border:2px solid var(--border);border-radius:8px;background:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;transition:all 0.15s}
+    .sr-pagination button:hover{border-color:var(--primary);background:#eff6ff}
+    .sr-pagination button.active-page{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .sr-pagination button:disabled{opacity:0.4;cursor:not-allowed}
+    .sr-page-info{font-size:0.85rem;color:var(--text-light);font-weight:600}
+    /* Modal styles for serial register */
+    .sr-modal .field-group{margin-bottom:12px}
+    .sr-modal .field-group label{display:block;font-size:0.85rem;font-weight:700;color:var(--text-light);margin-bottom:4px}
+    .sr-modal .field-group input,.sr-modal .field-group select{width:100%;padding:10px 14px;font-size:1rem;border:2px solid var(--border);border-radius:8px;outline:none}
+    .sr-modal .field-group input:focus{border-color:var(--primary)}
+    .history-card{background:#f8fafc;border:2px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px}
+    .history-card h4{font-size:0.95rem;color:var(--primary);margin-bottom:8px}
+    .history-card .h-row{display:flex;justify-content:space-between;padding:4px 0;font-size:0.9rem}
+    .history-card .h-row span:first-child{color:var(--text-light)}
+    .history-card .h-row span:last-child{font-weight:700}
+    .sr-empty{text-align:center;padding:40px;color:var(--text-light);font-style:italic}
+  </style>
+</head>
+<body>
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn active">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <div style="max-width:1200px;margin:0 auto;padding:0 20px;">
+    <!-- Stats -->
+    <div class="sr-stats" id="srStats">
+      <div class="sr-stat total"><div class="stat-label">Total Slots</div><div class="stat-val" id="statTotal">500</div></div>
+      <div class="sr-stat active"><div class="stat-label">Active</div><div class="stat-val" id="statActive">0</div></div>
+      <div class="sr-stat vacant"><div class="stat-label">Vacant</div><div class="stat-val" id="statVacant">0</div></div>
+      <div class="sr-stat left"><div class="stat-label">Left Company</div><div class="stat-val" id="statLeft">0</div></div>
+    </div>
+
+    <section class="card" style="max-width:1200px;margin:16px auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <h2 style="font-size:1.2rem;color:var(--primary)">📇 Employee Serial Register (1–500)</h2>
+      </div>
+
+      <div class="sr-controls">
+        <input type="text" id="srSearch" placeholder="🔍 Search by Serial No, Name, Phone, or Department..." oninput="debounceSearch()" />
+        <select id="srStatusFilter" onchange="loadSerialData(1)">
+          <option value="all">All Status</option>
+          <option value="Active">Active</option>
+          <option value="Vacant">Vacant</option>
+          <option value="Left Company">Left Company</option>
+        </select>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="sr-table">
+          <thead>
+            <tr>
+              <th>Serial #</th>
+              <th>Employee Name</th>
+              <th>Phone Number</th>
+              <th>Department</th>
+              <th>Status</th>
+              <th>Joining Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="srTableBody">
+            <tr><td colspan="7" class="sr-empty">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sr-pagination" id="srPagination"></div>
+    </section>
+  </div>
+
+  <!-- ═══════════════ ASSIGN / NEW RECORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="assignModal" style="display:none;">
+    <div class="modal-content card modal-sm sr-modal">
+      <div class="modal-header">
+        <h2 id="assignModalTitle">➕ Assign Employee</h2>
+        <button class="modal-close" onclick="closeAssignModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label>Serial Number</label>
+          <input type="number" id="assignSerialNo" readonly style="background:#f1f5f9;" />
+        </div>
+        <div class="field-group">
+          <label>Employee Name *</label>
+          <input type="text" id="assignEmpName" placeholder="Enter employee name" />
+        </div>
+        <div class="field-group">
+          <label>Phone Number</label>
+          <input type="tel" id="assignEmpPhone" placeholder="Enter phone number" autocomplete="tel" />
+        </div>
+        <div class="field-group">
+          <label>Department</label>
+          <select id="assignDept">
+            <option value="">Select Department</option>
+            <option>Engineering</option><option>HR</option><option>Finance</option>
+            <option>Marketing</option><option>Operations</option><option>Sales</option>
+            <option>Admin</option><option>IT</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Joining Date</label>
+          <input type="date" id="assignJoinDate" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAssignModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAssignment()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CONFIRM NEW RECORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="confirmNewModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>⚠️ Start New Record</h2>
+        <button class="modal-close" onclick="closeConfirmNew()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmNewMsg" style="font-size:0.95rem;line-height:1.6;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeConfirmNew()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmNewRecord()">Start New Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ EMPLOYEE LEFT MODAL ═══════════════ -->
+  <div class="modal-overlay" id="leaveModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🚪 Employee Left</h2>
+        <button class="modal-close" onclick="closeLeaveModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="leaveMsg" style="font-size:0.95rem;line-height:1.6;"></p>
+        <div class="field-group" style="margin-top:12px;">
+          <label>Leaving Date</label>
+          <input type="date" id="leaveDate" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeLeaveModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmLeave()">Confirm Leave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ HISTORY MODAL ═══════════════ -->
+  <div class="modal-overlay" id="historyModal" style="display:none;">
+    <div class="modal-content card" style="max-width:600px;">
+      <div class="modal-header">
+        <h2 id="historyTitle">📜 History</h2>
+        <button class="modal-close" onclick="closeHistory()">✕</button>
+      </div>
+      <div class="modal-body" id="historyBody">
+        <div class="sr-empty">Loading history...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="passwordModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🔐 Password Required</h2>
+        <button class="modal-close" onclick="closePasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="passwordMsg">Enter password to edit:</p>
+        <div class="field-group" style="margin-top:12px;">
+          <input type="password" id="srPasswordInput" placeholder="Enter password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <p class="password-error" id="srPasswordError" style="color:var(--danger);display:none;margin-top:8px;font-weight:700;">❌ Incorrect password</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="verifySRPassword()">🔓 Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">✅ Saved!</div>
+
+  <script>
+    let srPage = 1;
+    let srLimit = 25;
+    let searchTimeout = null;
+    let pendingAction = null;
+    let currentAuthCallback = null;
+
+    // ─── Init ───────────────────────────────────────────
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+      document.getElementById('assignJoinDate').value = new Date().toISOString().substring(0, 10);
+      document.getElementById('leaveDate').value = new Date().toISOString().substring(0, 10);
+      await loadStats();
+      await loadSerialData(1);
+    })();
+
+    // ─── Stats ──────────────────────────────────────────
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/serial-register/stats/all');
+        const stats = await res.json();
+        document.getElementById('statTotal').textContent = stats.total;
+        document.getElementById('statActive').textContent = stats.active;
+        document.getElementById('statVacant').textContent = stats.vacant;
+        document.getElementById('statLeft').textContent = stats.left;
+      } catch(e) {}
+    }
+
+    // ─── Load Data ──────────────────────────────────────
+    async function loadSerialData(page) {
+      srPage = page || 1;
+      const search = document.getElementById('srSearch').value.trim();
+      const status = document.getElementById('srStatusFilter').value;
+
+      try {
+        const params = new URLSearchParams({ page: srPage, limit: srLimit, search, status });
+        const res = await fetch(`/api/serial-register?${params}`);
+        const result = await res.json();
+        renderSRTable(result.data);
+        renderSRPagination(result.page, result.totalPages, result.total);
+      } catch(e) {
+        document.getElementById('srTableBody').innerHTML = '<tr><td colspan="7" class="sr-empty">Error loading data</td></tr>';
+      }
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => loadSerialData(1), 300);
+    }
+
+    function renderSRTable(rows) {
+      const tbody = document.getElementById('srTableBody');
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="sr-empty">No records found</td></tr>';
+        return;
+      }
+      let html = '';
+      for (const r of rows) {
+        const statusClass = r.status === 'Active' ? 'active' : r.status === 'Vacant' ? 'vacant' : 'left';
+        let actions = '';
+
+        if (r.status === 'Vacant' || r.status === 'Left Company') {
+          actions = `<button class="sr-btn-assign" onclick="openAssignModal(${r.serial_no}, '${escHtml(r.employee_name)}')">➕ Assign</button>`;
+        } else if (r.status === 'Active') {
+          actions = `
+            <button class="sr-btn-edit" onclick="requireAuth('edit', ${r.serial_no})">✏️ Edit</button>
+            <button class="sr-btn-leave" onclick="openLeaveModal(${r.serial_no}, '${escHtml(r.current_employee || r.employee_name)}')">🚪 Leave</button>
+          `;
+        }
+
+        actions += ` <button class="sr-btn-history" onclick="openHistory(${r.serial_no})">📜</button>`;
+
+        html += `<tr>
+          <td class="sr-no">${r.serial_no}</td>
+          <td>${r.employee_name || '<span style="color:#94a3b8">—</span>'}</td>
+          <td>${r.phone_number || '<span style="color:#94a3b8">—</span>'}</td>
+          <td>${r.department || '<span style="color:#94a3b8">—</span>'}</td>
+          <td><span class="sr-badge ${statusClass}">${r.status}</span></td>
+          <td>${r.joining_date || '<span style="color:#94a3b8">—</span>'}</td>
+          <td><div class="sr-actions">${actions}</div></td>
+        </tr>`;
+      }
+      tbody.innerHTML = html;
+    }
+
+    function renderSRPagination(current, total, totalCount) {
+      const div = document.getElementById('srPagination');
+      if (total <= 1) { div.innerHTML = ''; return; }
+      let html = `<span class="sr-page-info">Page ${current} of ${total} (${totalCount} records)</span>`;
+      html += `<button ${current<=1?'disabled':''} onclick="loadSerialData(${current-1})">← Prev</button>`;
+
+      // Show max 7 page buttons
+      let start = Math.max(1, current - 3);
+      let end = Math.min(total, current + 3);
+      if (start > 1) html += `<button onclick="loadSerialData(1)">1</button><span style="color:var(--text-light)">...</span>`;
+      for (let i = start; i <= end; i++) {
+        html += `<button class="${i===current?'active-page':''}" onclick="loadSerialData(${i})">${i}</button>`;
+      }
+      if (end < total) html += `<span style="color:var(--text-light)">...</span><button onclick="loadSerialData(${total})">${total}</button>`;
+
+      html += `<button ${current>=total?'disabled':''} onclick="loadSerialData(${current+1})">Next →</button>`;
+      div.innerHTML = html;
+    }
+
+    function escHtml(str) {
+      return (str||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // ─── Assign Modal ───────────────────────────────────
+    function openAssignModal(serialNo, existingName) {
+      document.getElementById('assignSerialNo').value = serialNo;
+      document.getElementById('assignEmpName').value = '';
+      document.getElementById('assignEmpPhone').value = '';
+      document.getElementById('assignDept').value = '';
+      document.getElementById('assignJoinDate').value = new Date().toISOString().substring(0, 10);
+      document.getElementById('assignModalTitle').textContent = `➕ Assign Employee to Serial #${serialNo}`;
+      document.getElementById('assignModal').style.display = 'flex';
+      document.getElementById('assignEmpName').focus();
+    }
+
+    function closeAssignModal() {
+      document.getElementById('assignModal').style.display = 'none';
+    }
+
+    async function saveAssignment() {
+      const serialNo = parseInt(document.getElementById('assignSerialNo').value, 10);
+      const empName = document.getElementById('assignEmpName').value.trim();
+      const empPhone = document.getElementById('assignEmpPhone').value.trim();
+      const dept = document.getElementById('assignDept').value;
+      const joinDate = document.getElementById('assignJoinDate').value;
+
+      if (!empName) { showToast('⚠️ Enter employee name'); return; }
+
+      try {
+        const res = await fetch('/api/serial-register', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ serial_no: serialNo, employee_name: empName, phone_number: empPhone, department: dept, joining_date: joinDate })
+        });
+        const data = await res.json();
+
+        if (data.error === 'occupied') {
+          // Show confirmation to start new record
+          closeAssignModal();
+          pendingAction = { serialNo, empName, empPhone, dept, joinDate };
+          document.getElementById('confirmNewMsg').innerHTML = `⚠️ <strong>Serial No. ${serialNo}</strong> was previously assigned to <strong>${data.previousName}</strong>.<br><br>Do you want to close the previous record and start a <strong>NEW employee record</strong>?`;
+          document.getElementById('confirmNewModal').style.display = 'flex';
+          return;
+        }
+
+        if (data.success) {
+          showToast('✅ Employee assigned!');
+          closeAssignModal();
+          await loadSerialData(srPage);
+          await loadStats();
+        } else {
+          showToast('❌ ' + (data.error || 'Error'));
+        }
+      } catch(e) {
+        showToast('❌ Network error');
+      }
+    }
+
+    function closeConfirmNew() {
+      document.getElementById('confirmNewModal').style.display = 'none';
+      pendingAction = null;
+    }
+
+    async function confirmNewRecord() {
+      if (!pendingAction) return;
+      const { serialNo, empName, empPhone, dept, joinDate } = pendingAction;
+      try {
+        const res = await fetch(`/api/serial-register/${serialNo}/new-record`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ employee_name: empName, phone_number: empPhone, department: dept, joining_date: joinDate })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ New record started!');
+          closeConfirmNew();
+          await loadSerialData(srPage);
+          await loadStats();
+        } else {
+          showToast('❌ ' + (data.error || 'Error'));
+        }
+      } catch(e) {
+        showToast('❌ Network error');
+      }
+    }
+
+    // ─── Edit ───────────────────────────────────────────
+    function requireAuth(action, serialNo) {
+      pendingAction = { action, serialNo };
+      document.getElementById('srPasswordInput').value = '';
+      document.getElementById('srPasswordError').style.display = 'none';
+      document.getElementById('passwordMsg').textContent = 'Enter password to edit this record:';
+      document.getElementById('passwordModal').style.display = 'flex';
+      document.getElementById('srPasswordInput').focus();
+    }
+
+    function closePasswordModal() {
+      document.getElementById('passwordModal').style.display = 'none';
+      pendingAction = null;
+    }
+
+    async function verifySRPassword() {
+      const pw = document.getElementById('srPasswordInput').value;
+      try {
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        const data = await res.json();
+        if (data.valid) {
+          closePasswordModal();
+          if (pendingAction && pendingAction.action === 'edit') {
+            openEditModal(pendingAction.serialNo);
+          }
+        } else {
+          document.getElementById('srPasswordError').style.display = 'block';
+          document.getElementById('srPasswordInput').value = '';
+          document.getElementById('srPasswordInput').focus();
+        }
+      } catch(e) {
+        showToast('❌ Error verifying password');
+      }
+    }
+
+    document.getElementById('srPasswordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifySRPassword();
+    });
+
+    async function openEditModal(serialNo) {
+      try {
+        const res = await fetch(`/api/serial-register/${serialNo}`);
+        const entry = await res.json();
+        document.getElementById('assignSerialNo').value = serialNo;
+        document.getElementById('assignEmpName').value = entry.employee_name || '';
+        document.getElementById('assignEmpPhone').value = entry.phone_number || '';
+        document.getElementById('assignDept').value = entry.department || '';
+        document.getElementById('assignJoinDate').value = entry.joining_date || '';
+        document.getElementById('assignModalTitle').textContent = `✏️ Edit Serial #${serialNo}`;
+        document.getElementById('assignModal').style.display = 'flex';
+        document.getElementById('assignEmpName').focus();
+      } catch(e) {
+        showToast('❌ Error loading entry');
+      }
+    }
+
+    // ─── Employee Left ──────────────────────────────────
+    function openLeaveModal(serialNo, empName) {
+      document.getElementById('leaveMsg').innerHTML = `Mark <strong>${empName}</strong> as <strong>Left Company</strong> for Serial No. <strong>${serialNo}</strong>?`;
+      document.getElementById('leaveDate').value = new Date().toISOString().substring(0, 10);
+      document.getElementById('leaveModal').dataset.serial = serialNo;
+      document.getElementById('leaveModal').style.display = 'flex';
+    }
+
+    function closeLeaveModal() {
+      document.getElementById('leaveModal').style.display = 'none';
+    }
+
+    async function confirmLeave() {
+      const serialNo = parseInt(document.getElementById('leaveModal').dataset.serial, 10);
+      const leaveDate = document.getElementById('leaveDate').value;
+      try {
+        const res = await fetch(`/api/serial-register/${serialNo}/leave`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ leaving_date: leaveDate })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Employee marked as left');
+          closeLeaveModal();
+          await loadSerialData(srPage);
+          await loadStats();
+        } else {
+          showToast('❌ ' + (data.error || 'Error'));
+        }
+      } catch(e) {
+        showToast('❌ Network error');
+      }
+    }
+
+    // ─── History ────────────────────────────────────────
+    async function openHistory(serialNo) {
+      document.getElementById('historyTitle').textContent = `📜 History – Serial No. ${serialNo}`;
+      document.getElementById('historyBody').innerHTML = '<div class="sr-empty">Loading history...</div>';
+      document.getElementById('historyModal').style.display = 'flex';
+
+      try {
+        // Get current record
+        const curRes = await fetch(`/api/serial-register/${serialNo}`);
+        const current = await curRes.json();
+
+        // Get history
+        const histRes = await fetch(`/api/serial-register/${serialNo}/history`);
+        const history = await histRes.json();
+
+        let html = '';
+
+        // Current employee section
+        html += `<div class="history-card" style="border-color:var(--accent);">
+          <h4>👤 CURRENT EMPLOYEE</h4>`;
+        if (current.status === 'Active' && current.current_employee) {
+          html += `
+            <div class="h-row"><span>Name</span><span>${current.employee_name}</span></div>
+            <div class="h-row"><span>Phone Number</span><span>${current.phone_number || '—'}</span></div>
+            <div class="h-row"><span>Department</span><span>${current.department || '—'}</span></div>
+            <div class="h-row"><span>Status</span><span class="sr-badge active">Active</span></div>
+            <div class="h-row"><span>Joining Date</span><span>${current.joining_date || '—'}</span></div>`;
+        } else if (current.status === 'Left Company') {
+          html += `
+            <div class="h-row"><span>Name</span><span>${current.employee_name || '—'}</span></div>
+            <div class="h-row"><span>Status</span><span class="sr-badge left">Left Company</span></div>
+            <div class="h-row"><span>Joining Date</span><span>${current.joining_date || '—'}</span></div>
+            <div class="h-row"><span>Leaving Date</span><span>${current.leaving_date || '—'}</span></div>`;
+        } else {
+          html += `<p style="color:var(--text-light);font-style:italic;">No current employee assigned.</p>`;
+        }
+        html += `</div>`;
+
+        // History section
+        if (history.length > 0) {
+          html += `<h3 style="margin:16px 0 10px;font-size:1rem;color:var(--text);">📋 PREVIOUS HISTORY (${history.length})</h3>`;
+          let idx = 1;
+          for (const h of history) {
+            html += `<div class="history-card">
+              <h4>${idx++}. ${h.employee_name || 'Unknown'}</h4>
+              <div class="h-row"><span>Status</span><span class="sr-badge left">Left Company</span></div>
+              <div class="h-row"><span>Phone Number</span><span>${h.phone_number || '—'}</span></div>
+              <div class="h-row"><span>Department</span><span>${h.department || '—'}</span></div>
+              <div class="h-row"><span>Joining Date</span><span>${h.joining_date || '—'}</span></div>
+              <div class="h-row"><span>Leaving Date</span><span>${h.leaving_date || '—'}</span></div>
+            </div>`;
+          }
+        } else {
+          html += `<p style="color:var(--text-light);font-style:italic;margin-top:10px;">No previous employees for this serial number.</p>`;
+        }
+
+        document.getElementById('historyBody').innerHTML = html;
+      } catch(e) {
+        document.getElementById('historyBody').innerHTML = '<div class="sr-empty">Error loading history</div>';
+      }
+    }
+
+    function closeHistory() {
+      document.getElementById('historyModal').style.display = 'none';
+    }
+
+    // ─── Toast ──────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Employee Entry</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn active">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ DATE BANNER ═══════════════ -->
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <!-- ═══════════════ EMPLOYEE INPUT ═══════════════ -->
+  <section class="card emp-input-card">
+    <label for="empNo">Enter Employee Number</label>
+    <div class="emp-row">
+      <input
+        type="number"
+        id="empNo"
+        min="1"
+        max="300"
+        placeholder="1 – 300"
+        autofocus
+      />
+      <button id="loadBtn" class="btn btn-primary">Load Entry →</button>
+    </div>
+    <!-- Employee name display -->
+    <div class="emp-name-display" id="empNameDisplay" style="display:none;">
+      <span class="emp-name-label">Employee Name:</span>
+      <span class="emp-name-value" id="empNameValue"></span>
+    </div>
+    <!-- Date picker for editing past entries -->
+    <div class="date-picker-row" id="datePickerRow" style="display:none;">
+      <label for="entryDate">📅 Select Date to Edit:</label>
+      <input type="date" id="entryDate" />
+      <button id="loadDateBtn" class="btn btn-secondary">Load Date →</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ENTRY FORM (hidden until loaded) ═══════════════ -->
+  <section class="card entry-card" id="entrySection" style="display:none;">
+    <div class="entry-header">
+      <h2 id="entryTitle">Today's Entry</h2>
+      <!-- NO edit button here - edit is only through Preview modal -->
+    </div>
+
+    <!-- ─── Food Items ─── -->
+    <div class="food-grid">
+      <div class="food-item" data-key="tea_qty">
+        <span class="food-icon">☕</span>
+        <span class="food-name">Tea</span>
+        <span class="food-price" id="price_tea"></span>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('tea_qty',-1)">−</button>
+          <span class="qty-val" id="val_tea_qty">0</span>
+          <button class="qty-btn plus" onclick="changeQty('tea_qty',1)">+</button>
+        </div>
+      </div>
+
+      <div class="food-item" data-key="breakfast_qty">
+        <span class="food-icon">🥪</span>
+        <span class="food-name">Breakfast</span>
+        <span class="food-price" id="price_breakfast"></span>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('breakfast_qty',-1)">−</button>
+          <span class="qty-val" id="val_breakfast_qty">0</span>
+          <button class="qty-btn plus" onclick="changeQty('breakfast_qty',1)">+</button>
+        </div>
+      </div>
+
+      <div class="food-item" data-key="lunch_qty">
+        <span class="food-icon">🍛</span>
+        <span class="food-name">Lunch</span>
+        <span class="food-price" id="price_lunch"></span>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('lunch_qty',-1)">−</button>
+          <span class="qty-val" id="val_lunch_qty">0</span>
+          <button class="qty-btn plus" onclick="changeQty('lunch_qty',1)">+</button>
+        </div>
+      </div>
+
+      <div class="food-item" data-key="dinner_qty">
+        <span class="food-icon">🍲</span>
+        <span class="food-name">Dinner</span>
+        <span class="food-price" id="price_dinner"></span>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('dinner_qty',-1)">−</button>
+          <span class="qty-val" id="val_dinner_qty">0</span>
+          <button class="qty-btn plus" onclick="changeQty('dinner_qty',1)">+</button>
+        </div>
+      </div>
+
+      <div class="food-item" data-key="snacks_qty">
+        <span class="food-icon">🍪</span>
+        <span class="food-name">Snacks</span>
+        <span class="food-price" id="price_snacks"></span>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty('snacks_qty',-1)">−</button>
+          <span class="qty-val" id="val_snacks_qty">0</span>
+          <button class="qty-btn plus" onclick="changeQty('snacks_qty',1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Other / Special Order ─── -->
+    <div class="other-section">
+      <h3>🍽️ Other / Special Order</h3>
+      <div class="other-fields">
+        <div class="field-group">
+          <label for="otherDesc">Description</label>
+          <input type="text" id="otherDesc" placeholder="e.g. Special Food Order" />
+        </div>
+        <div class="field-group">
+          <label for="otherAmt">Amount (₹)</label>
+          <input type="number" id="otherAmt" min="0" step="0.5" placeholder="0" />
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Daily Total ─── -->
+    <div class="total-bar">
+      <span>TODAY'S TOTAL</span>
+      <span class="total-amount" id="dailyTotal">₹0</span>
+    </div>
+
+    <!-- ─── Save & Preview ─── -->
+    <div class="action-btns">
+      <button class="btn btn-preview" onclick="showPreview()">👁️ Preview</button>
+      <button id="saveBtn" class="btn btn-save" onclick="saveEntry()">💾 Save Today's Entry</button>
+    </div>
+
+    <div class="toast" id="toast">✅ Entry Saved Successfully!</div>
+  </section>
+
+  <!-- ═══════════════ PREVIEW MODAL ═══════════════ -->
+  <div class="modal-overlay" id="previewModal" style="display:none;">
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h2>👁️ Preview Entry</h2>
+        <button class="modal-close" onclick="closePreview()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="preview-emp" id="previewEmp"></div>
+        <div class="preview-date" id="previewDate"></div>
+
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="text-align:right;font-weight:800;">TOTAL</td>
+              <td id="previewTotal" class="total-cell">₹0</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div id="previewOther" style="display:none;" class="preview-other-box">
+          <strong>🍽️ Other / Special Order:</strong>
+          <span id="previewOtherDesc"></span> — <span id="previewOtherAmt"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" onclick="requestPreviewEdit()">✏️ Edit (Password)</button>
+        <button class="btn btn-secondary" onclick="closePreview()">Close</button>
+        <button class="btn btn-save" onclick="confirmSave()">💾 Confirm & Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DELETE CONFIRM MODAL ═══════════════ -->
+  <div class="modal-overlay" id="deleteModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🗑️ Delete Entry</h2>
+        <button class="modal-close" onclick="closeDelete()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="deleteMsg">Are you sure you want to delete this entry?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDelete()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">🗑️ Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="passwordModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🔐 Enter Password to Edit</h2>
+        <button class="modal-close" onclick="closePasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="passwordMsg">Enter password to edit this entry (add, remove, or delete items):</p>
+        <div class="field-group" style="margin-top:12px;">
+          <label for="passwordInput">Password</label>
+          <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <p class="password-error" id="passwordError" style="color:var(--danger);display:none;margin-top:8px;font-weight:700;">❌ Incorrect password</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="verifyEditPassword()">🔓 Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── State ──────────────────────────────────────────────
+    let prices = {};
+    let currentEmp = null;
+    let currentDate = null;
+    let isExistingEntry = false;
+    let isEditMode = false;
+    let empName = '';
+    // savedQty tracks what was saved previously (for add-only enforcement)
+    let savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
+    let qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
+
+    const monthNames = [
+      'January','February','March','April','May','June',
+      'July','August','September','October','November','December',
+    ];
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      const pRes = await fetch('/api/prices');
+      prices = await pRes.json();
+      document.getElementById('price_tea').textContent      = `₹${prices.tea}`;
+      document.getElementById('price_breakfast').textContent = `₹${prices.breakfast}`;
+      document.getElementById('price_lunch').textContent     = `₹${prices.lunch}`;
+      document.getElementById('price_dinner').textContent    = `₹${prices.dinner}`;
+      document.getElementById('price_snacks').textContent    = `₹${prices.snacks}`;
+
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+    })();
+
+    // ─── Load Entry ─────────────────────────────────────────
+    document.getElementById('loadBtn').addEventListener('click', () => loadEntry());
+    document.getElementById('empNo').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadEntry();
+    });
+    document.getElementById('loadDateBtn').addEventListener('click', loadByDate);
+
+    function loadEntry() {
+      const empInput = document.getElementById('empNo');
+      const empNo = parseInt(empInput.value, 10);
+
+      if (!empNo || empNo < 1 || empNo > 300) {
+        empInput.focus();
+        empInput.classList.add('shake');
+        setTimeout(() => empInput.classList.remove('shake'), 400);
+        return;
+      }
+
+      currentEmp = empNo;
+      isEditMode = false;
+      document.getElementById('datePickerRow').style.display = 'flex';
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      currentDate = `${yyyy}-${mm}-${dd}`;
+      document.getElementById('entryDate').value = currentDate;
+
+      // Auto-fetch employee name
+      fetchEmployeeName(empNo);
+      loadEntryData(empNo, currentDate);
+    }
+
+    async function fetchEmployeeName(empNo) {
+      try {
+        const res = await fetch(`/api/employees/${empNo}`);
+        const data = await res.json();
+        empName = data.name || '';
+        if (empName) {
+          document.getElementById('empNameDisplay').style.display = 'flex';
+          document.getElementById('empNameValue').textContent = empName;
+        } else {
+          document.getElementById('empNameDisplay').style.display = 'none';
+        }
+      } catch (e) {
+        document.getElementById('empNameDisplay').style.display = 'none';
+      }
+    }
+
+    async function loadByDate() {
+      const empInput = document.getElementById('empNo');
+      const empNo = parseInt(empInput.value, 10);
+      const dateInput = document.getElementById('entryDate').value;
+
+      if (!empNo || empNo < 1 || empNo > 300) {
+        empInput.focus();
+        empInput.classList.add('shake');
+        setTimeout(() => empInput.classList.remove('shake'), 400);
+        return;
+      }
+      if (!dateInput) { alert('Please select a date'); return; }
+
+      currentEmp = empNo;
+      currentDate = dateInput;
+      isEditMode = false;
+      loadEntryData(empNo, dateInput);
+    }
+
+    async function loadEntryData(empNo, date) {
+      const res = await fetch(`/api/entry/${empNo}/${date}`);
+      const entry = await res.json();
+
+      qty.tea_qty        = entry.tea_qty || 0;
+      qty.breakfast_qty  = entry.breakfast_qty || 0;
+      qty.lunch_qty      = entry.lunch_qty || 0;
+      qty.dinner_qty     = entry.dinner_qty || 0;
+      qty.snacks_qty     = entry.snacks_qty || 0;
+
+      // Save original values for add-only enforcement
+      savedQty = { ...qty };
+
+      document.getElementById('val_tea_qty').textContent        = qty.tea_qty;
+      document.getElementById('val_breakfast_qty').textContent  = qty.breakfast_qty;
+      document.getElementById('val_lunch_qty').textContent      = qty.lunch_qty;
+      document.getElementById('val_dinner_qty').textContent     = qty.dinner_qty;
+      document.getElementById('val_snacks_qty').textContent     = qty.snacks_qty;
+
+      document.getElementById('otherDesc').value = entry.other_description || '';
+      document.getElementById('otherAmt').value  = entry.other_amount || 0;
+
+      isExistingEntry = (entry.tea_qty > 0 || entry.breakfast_qty > 0 || entry.lunch_qty > 0 ||
+                         entry.dinner_qty > 0 || entry.snacks_qty > 0 || entry.other_amount > 0);
+
+      const dateParts = date.split('-');
+      const dateLabel = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+      const nameStr = empName ? ` (${empName})` : '';
+      document.getElementById('entryTitle').textContent =
+        `Employee #${empNo}${nameStr} – ${dateLabel}`;
+
+      // If existing entry: employee can only ADD (not remove), save is allowed
+      if (isExistingEntry) {
+        enableAddOnlyMode();
+        isEditMode = false;
+      } else {
+        enableFullMode();
+        isEditMode = true;
+      }
+
+      document.getElementById('entrySection').style.display = 'block';
+      document.getElementById('entrySection').scrollIntoView({ behavior: 'smooth' });
+      calcTotal();
+    }
+
+    // ADD-ONLY mode: employee can increase qty but NOT decrease below saved values
+    function enableAddOnlyMode() {
+      const btns = document.querySelectorAll('.qty-btn');
+      btns.forEach(b => {
+        b.disabled = false;
+      });
+      document.getElementById('otherDesc').disabled = false;
+      document.getElementById('otherAmt').disabled = false;
+      document.getElementById('saveBtn').disabled = false;
+      document.getElementById('saveBtn').textContent = '💾 Save Entry';
+    }
+
+    // Full mode: everything enabled (used for new entries or after password edit)
+    function enableFullMode() {
+      const btns = document.querySelectorAll('.qty-btn');
+      btns.forEach(b => { b.disabled = false; });
+      document.getElementById('otherDesc').disabled = false;
+      document.getElementById('otherAmt').disabled = false;
+      document.getElementById('saveBtn').disabled = false;
+      document.getElementById('saveBtn').textContent = '💾 Save Today\'s Entry';
+    }
+
+    // Lock form completely (not used anymore but kept for safety)
+    function lockForm(locked) {
+      if (locked) enableAddOnlyMode();
+      else enableFullMode();
+    }
+
+    // ─── Password Gate for Edit (from Preview modal) ───────
+    function requestPreviewEdit() {
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('passwordModal').style.display = 'flex';
+      document.getElementById('passwordInput').focus();
+    }
+
+    function closePasswordModal() {
+      document.getElementById('passwordModal').style.display = 'none';
+    }
+
+    async function verifyEditPassword() {
+      const pw = document.getElementById('passwordInput').value;
+      try {
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          closePasswordModal();
+          isEditMode = true;
+          enableFullMode();
+          showToast('🔓 Full edit mode enabled!');
+        } else {
+          document.getElementById('passwordError').style.display = 'block';
+          document.getElementById('passwordInput').value = '';
+          document.getElementById('passwordInput').focus();
+        }
+      } catch (e) {
+        alert('Error verifying password');
+      }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyEditPassword();
+    });
+
+    // ─── Quantity Controls ──────────────────────────────────
+    function changeQty(key, delta) {
+      // If minus: only allowed in edit mode (password-protected)
+      if (delta < 0 && !isEditMode) {
+        showToast('⚠️ To decrease, use Preview → Edit (Password)');
+        return;
+      }
+      // If plus: always allowed (add-only mode)
+      qty[key] = Math.max(0, qty[key] + delta);
+      document.getElementById(`val_${key}`).textContent = qty[key];
+      calcTotal();
+    }
+
+    function calcTotal() {
+      const t =
+        qty.tea_qty * prices.tea +
+        qty.breakfast_qty * prices.breakfast +
+        qty.lunch_qty * prices.lunch +
+        qty.dinner_qty * prices.dinner +
+        qty.snacks_qty * prices.snacks +
+        (parseFloat(document.getElementById('otherAmt').value) || 0);
+      document.getElementById('dailyTotal').textContent = `₹${t.toLocaleString('en-IN')}`;
+    }
+
+    document.getElementById('otherAmt').addEventListener('input', calcTotal);
+
+    // ─── Preview ────────────────────────────────────────────
+    function showPreview() {
+      if (!currentEmp || !currentDate) return;
+      const dateParts = currentDate.split('-');
+      const dateLabel = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+      const nameStr = empName ? ` (${empName})` : '';
+
+      document.getElementById('previewEmp').textContent = `Employee #${currentEmp}${nameStr}`;
+      document.getElementById('previewDate').textContent = `Date: ${dateLabel}`;
+
+      const body = document.getElementById('previewBody');
+      let html = '';
+      const items = [
+        { name: '☕ Tea', qty: qty.tea_qty, rate: prices.tea },
+        { name: '🥪 Breakfast', qty: qty.breakfast_qty, rate: prices.breakfast },
+        { name: '🍛 Lunch', qty: qty.lunch_qty, rate: prices.lunch },
+        { name: '🍲 Dinner', qty: qty.dinner_qty, rate: prices.dinner },
+        { name: '🍪 Snacks', qty: qty.snacks_qty, rate: prices.snacks },
+      ];
+
+      for (const item of items) {
+        const amt = item.qty * item.rate;
+        if (item.qty > 0) {
+          html += `<tr><td>${item.name}</td><td>${item.qty}</td><td>₹${item.rate}</td><td class="total-cell">₹${amt}</td></tr>`;
+        }
+      }
+
+      const otherDesc = document.getElementById('otherDesc').value;
+      const otherAmt = parseFloat(document.getElementById('otherAmt').value) || 0;
+      if (otherAmt > 0) {
+        html += `<tr><td>🍽️ ${otherDesc || 'Special Order'}</td><td>1</td><td>—</td><td class="total-cell">₹${otherAmt}</td></tr>`;
+      }
+      if (!html) html = '<tr><td colspan="4" style="color:#94a3b8;font-style:italic;">No items selected</td></tr>';
+      body.innerHTML = html;
+
+      const total = qty.tea_qty * prices.tea + qty.breakfast_qty * prices.breakfast +
+                     qty.lunch_qty * prices.lunch + qty.dinner_qty * prices.dinner +
+                     qty.snacks_qty * prices.snacks + otherAmt;
+      document.getElementById('previewTotal').textContent = `₹${total.toLocaleString('en-IN')}`;
+
+      const otherBox = document.getElementById('previewOther');
+      if (otherAmt > 0) {
+        otherBox.style.display = 'block';
+        document.getElementById('previewOtherDesc').textContent = otherDesc || 'Special Order';
+        document.getElementById('previewOtherAmt').textContent = `₹${otherAmt}`;
+      } else {
+        otherBox.style.display = 'none';
+      }
+
+      document.getElementById('previewModal').style.display = 'flex';
+    }
+
+    function closePreview() { document.getElementById('previewModal').style.display = 'none'; }
+    function confirmSave() { closePreview(); saveEntry(); }
+
+    // ─── Save ───────────────────────────────────────────────
+    async function saveEntry() {
+      if (!currentEmp || !currentDate) return;
+
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const body = {
+        employee_number: currentEmp,
+        entry_date: currentDate,
+        tea_qty: qty.tea_qty,
+        breakfast_qty: qty.breakfast_qty,
+        lunch_qty: qty.lunch_qty,
+        dinner_qty: qty.dinner_qty,
+        snacks_qty: qty.snacks_qty,
+        other_description: document.getElementById('otherDesc').value,
+        other_amount: parseFloat(document.getElementById('otherAmt').value) || 0,
+      };
+
+      try {
+        const res = await fetch('/api/entry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast('✅ Entry Saved Successfully!');
+          isExistingEntry = true;
+          isEditMode = false;
+          // Update saved values after save
+          savedQty = { ...qty };
+          enableAddOnlyMode();
+        }
+      } catch (err) {
+        alert('Error saving entry. Please try again.');
+      } finally {
+        btn.disabled = false;
+        if (!isExistingEntry || isEditMode) {
+          btn.textContent = '💾 Save Today\'s Entry';
+        } else {
+          btn.textContent = '💾 Save Entry';
+        }
+      }
+    }
+
+    // ─── Delete ─────────────────────────────────────────────
+    function deleteEntry() {
+      if (!currentEmp || !currentDate) return;
+      const dateParts = currentDate.split('-');
+      const dateLabel = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+      document.getElementById('deleteMsg').textContent =
+        `Are you sure you want to delete Employee #${currentEmp}'s entry for ${dateLabel}?`;
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeDelete() { document.getElementById('deleteModal').style.display = 'none'; }
+
+    async function confirmDelete() {
+      try {
+        const res = await fetch(`/api/entry/${currentEmp}/${currentDate}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          closeDelete();
+          showToast('🗑️ Entry Deleted Successfully!');
+          isExistingEntry = false;
+          isEditMode = false;
+          savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
+          qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0 };
+          document.getElementById('val_tea_qty').textContent = 0;
+          document.getElementById('val_breakfast_qty').textContent = 0;
+          document.getElementById('val_lunch_qty').textContent = 0;
+          document.getElementById('val_dinner_qty').textContent = 0;
+          document.getElementById('val_snacks_qty').textContent = 0;
+          document.getElementById('otherDesc').value = '';
+          document.getElementById('otherAmt').value = 0;
+          enableFullMode();
+          calcTotal();
+        } else {
+          alert('Entry not found or could not be deleted.');
+        }
+      } catch (err) {
+        alert('Error deleting entry.');
+      }
+    }
+
+    // ─── Toast ──────────────────────────────────────────────
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg || '✅ Entry Saved Successfully!';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>

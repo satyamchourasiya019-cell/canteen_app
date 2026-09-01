@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Complaints & Reports</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn active">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ DATE BANNER ═══════════════ -->
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <!-- ═══════════════ SUBMIT COMPLAINT ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>📣 Submit a Complaint or Report</h2>
+    </div>
+    <p class="hint-text">Submit your complaint or feedback about canteen services. All submissions are reviewed by management.</p>
+
+    <div style="margin-top:16px;">
+      <div class="settings-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+          <label style="font-weight:700;margin-bottom:4px;">Your Name *</label>
+          <input type="text" id="compName" placeholder="Enter your name" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+          <label style="font-weight:700;margin-bottom:4px;">Phone Number *</label>
+          <input type="tel" id="compPhone" placeholder="Enter phone number" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+          <label style="font-weight:700;margin-bottom:4px;">Department</label>
+          <select id="compDept" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="">Select Department</option>
+            <option>Engineering</option><option>HR</option><option>Finance</option>
+            <option>Marketing</option><option>Operations</option><option>Sales</option>
+            <option>Admin</option><option>IT</option><option>Other</option>
+          </select>
+        </div>
+        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+          <label style="font-weight:700;margin-bottom:4px;">Category *</label>
+          <select id="compCategory" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="general">General Feedback</option>
+            <option value="food_quality">Food Quality</option>
+            <option value="hygiene">Hygiene & Cleanliness</option>
+            <option value="service">Service Issue</option>
+            <option value="pricing">Pricing Concern</option>
+            <option value="late_delivery">Late Delivery</option>
+            <option value="missing_order">Missing Order</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label style="font-weight:700;display:block;margin-bottom:4px;">Subject *</label>
+        <input type="text" id="compSubject" placeholder="Brief subject of your complaint" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;box-sizing:border-box;" />
+      </div>
+      <div style="margin-top:12px;">
+        <label style="font-weight:700;display:block;margin-bottom:4px;">Description *</label>
+        <textarea id="compDesc" placeholder="Describe your complaint or report in detail..." rows="5" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
+        <button class="btn btn-save" id="submitComplaintBtn" onclick="submitComplaint()">📤 Submit Complaint</button>
+        <button class="btn btn-secondary" onclick="clearForm()">↩️ Clear</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">✅ Complaint Submitted!</div>
+  </section>
+
+  <!-- ═══════════════ COMPLAINTS LIST ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>📋 All Complaints & Reports</h2>
+      <div class="section-actions" style="display:flex;gap:8px;align-items:center;">
+        <select id="statusFilter" onchange="loadComplaints()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
+          <option value="all">All Status</option>
+          <option value="open">🟡 Open</option>
+          <option value="in_progress">🔵 In Progress</option>
+          <option value="resolved">🟢 Resolved</option>
+          <option value="closed">⚪ Closed</option>
+        </select>
+        <select id="catFilter" onchange="loadComplaints()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
+          <option value="all">All Categories</option>
+          <option value="general">General</option>
+          <option value="food_quality">Food Quality</option>
+          <option value="hygiene">Hygiene</option>
+          <option value="service">Service</option>
+          <option value="pricing">Pricing</option>
+          <option value="late_delivery">Late Delivery</option>
+          <option value="missing_order">Missing Order</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Category</th>
+            <th>Subject</th>
+            <th>Status</th>
+            <th>Admin Reply</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="complaintsBody">
+          <tr class="empty-row"><td colspan="9">Loading complaints...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════ REPLY MODAL ═══════════════ -->
+  <div class="modal-overlay" id="replyModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2 id="replyModalTitle">💬 Reply to Complaint</h2>
+        <button class="modal-close" onclick="closeReplyModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="replyComplaintInfo" style="background:#f8fafc;border:2px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;"></div>
+        <div class="field-group" style="margin-bottom:10px;">
+          <label style="font-weight:700;">Status</label>
+          <select id="replyStatus" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="open">🟡 Open</option>
+            <option value="in_progress">🔵 In Progress</option>
+            <option value="resolved">🟢 Resolved</option>
+            <option value="closed">⚪ Closed</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label style="font-weight:700;">Admin Reply</label>
+          <textarea id="replyText" rows="4" placeholder="Write your reply..." style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit;box-sizing:border-box;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeReplyModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveReply()">💾 Save Reply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="passwordModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🔐 Password Required</h2>
+        <button class="modal-close" onclick="closePasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Enter password to manage complaints:</p>
+        <div class="field-group" style="margin-top:12px;">
+          <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <p class="password-error" id="passwordError" style="color:var(--danger);display:none;margin-top:8px;font-weight:700;">❌ Incorrect password</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="verifyPassword()">🔓 Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let authenticated = false;
+    let replyingToId = null;
+    let allComplaints = [];
+
+    const categoryLabels = {
+      general: '💬 General',
+      food_quality: '🍔 Food Quality',
+      hygiene: '🧹 Hygiene',
+      service: '🛎️ Service',
+      pricing: '💰 Pricing',
+      late_delivery: '⏰ Late Delivery',
+      missing_order: '❌ Missing Order',
+      other: '📌 Other',
+    };
+
+    const statusStyles = {
+      open: 'color:#d97706;font-weight:700;',
+      in_progress: 'color:#2563eb;font-weight:700;',
+      resolved: 'color:#059669;font-weight:700;',
+      closed: 'color:#64748b;font-weight:700;',
+    };
+
+    const statusLabels = {
+      open: '🟡 Open',
+      in_progress: '🔵 In Progress',
+      resolved: '🟢 Resolved',
+      closed: '⚪ Closed',
+    };
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+      showPasswordModal();
+    })();
+
+    // ─── Password ───────────────────────────────────────────
+    function showPasswordModal() {
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('passwordModal').style.display = 'flex';
+      document.getElementById('passwordInput').focus();
+    }
+
+    function closePasswordModal() {
+      if (!authenticated) {
+        window.location.href = '/';
+      }
+      document.getElementById('passwordModal').style.display = 'none';
+    }
+
+    async function verifyPassword() {
+      const pw = document.getElementById('passwordInput').value;
+      try {
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          authenticated = true;
+          closePasswordModal();
+          loadComplaints();
+        } else {
+          document.getElementById('passwordError').style.display = 'block';
+          document.getElementById('passwordInput').value = '';
+          document.getElementById('passwordInput').focus();
+        }
+      } catch (e) {
+        alert('Error verifying password');
+      }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyPassword();
+    });
+
+    // ─── Submit Complaint ───────────────────────────────────
+    async function submitComplaint() {
+      const name = document.getElementById('compName').value.trim();
+      const phone = document.getElementById('compPhone').value.trim();
+      const dept = document.getElementById('compDept').value;
+      const cat = document.getElementById('compCategory').value;
+      const subject = document.getElementById('compSubject').value.trim();
+      const desc = document.getElementById('compDesc').value.trim();
+
+      if (!name) { alert('Please enter your name'); return; }
+      if (!subject) { alert('Please enter a subject'); return; }
+      if (!desc) { alert('Please enter a description'); return; }
+
+      const btn = document.getElementById('submitComplaintBtn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      try {
+        const res = await fetch('/api/complaints', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee_name: name,
+            phone_number: phone,
+            department: dept,
+            category: cat,
+            subject: subject,
+            description: desc
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Complaint submitted successfully!');
+          clearForm();
+          loadComplaints();
+        } else {
+          alert(data.error || 'Error submitting complaint');
+        }
+      } catch (err) {
+        alert('Error submitting complaint');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📤 Submit Complaint';
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('compName').value = '';
+      document.getElementById('compPhone').value = '';
+      document.getElementById('compDept').value = '';
+      document.getElementById('compCategory').value = 'general';
+      document.getElementById('compSubject').value = '';
+      document.getElementById('compDesc').value = '';
+    }
+
+    // ─── Load Complaints ────────────────────────────────────
+    async function loadComplaints() {
+      const status = document.getElementById('statusFilter').value;
+      const cat = document.getElementById('catFilter').value;
+      const params = new URLSearchParams();
+      if (status !== 'all') params.append('status', status);
+      if (cat !== 'all') params.append('category', cat);
+
+      try {
+        const res = await fetch(`/api/complaints?${params}`);
+        allComplaints = await res.json();
+        renderComplaints();
+      } catch (err) {
+        console.error('Error loading complaints:', err);
+      }
+    }
+
+    function renderComplaints() {
+      const tbody = document.getElementById('complaintsBody');
+      if (!allComplaints || allComplaints.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No complaints found.</td></tr>';
+        return;
+      }
+      let html = '';
+      let i = 1;
+      for (const c of allComplaints) {
+        const catLabel = categoryLabels[c.category] || c.category;
+        const statusStyle = statusStyles[c.status] || '';
+        const statusLabel = statusLabels[c.status] || c.status;
+        const date = c.created_at ? c.created_at.substring(0, 10) : '—';
+        html += `<tr>
+          <td>${i++}</td>
+          <td class="date-cell">${date}</td>
+          <td>${c.employee_name || '—'}</td>
+          <td>${c.phone_number || '—'}</td>
+          <td>${catLabel}</td>
+          <td style="font-weight:700;">${c.subject}</td>
+          <td><span style="${statusStyle}">${statusLabel}</span></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.admin_reply || ''}">${c.admin_reply || '<span style="color:#94a3b8">—</span>'}</td>
+          <td><button class="btn btn-primary btn-sm" onclick="openReplyModal(${c.id})">💬 Reply</button></td>
+        </tr>`;
+      }
+      tbody.innerHTML = html;
+    }
+
+    // ─── Reply Modal ────────────────────────────────────────
+    function openReplyModal(id) {
+      const complaint = allComplaints.find(c => c.id === id);
+      if (!complaint) return;
+      replyingToId = id;
+
+      document.getElementById('replyModalTitle').textContent = `💬 Reply to #${id}`;
+      document.getElementById('replyComplaintInfo').innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">From:</span><span style="font-weight:700;">${complaint.employee_name || 'Unknown'}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Phone:</span><span style="font-weight:700;">${complaint.phone_number || '—'}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Subject:</span><span style="font-weight:700;">${complaint.subject}</span></div>
+        <div style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;border:1px solid var(--border);">${complaint.description}</div>
+      `;
+      document.getElementById('replyStatus').value = complaint.status || 'open';
+      document.getElementById('replyText').value = complaint.admin_reply || '';
+      document.getElementById('replyModal').style.display = 'flex';
+    }
+
+    function closeReplyModal() {
+      document.getElementById('replyModal').style.display = 'none';
+      replyingToId = null;
+    }
+
+    async function saveReply() {
+      if (!replyingToId) return;
+      const status = document.getElementById('replyStatus').value;
+      const reply = document.getElementById('replyText').value;
+
+      try {
+        const res = await fetch(`/api/complaints/${replyingToId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, admin_reply: reply })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeReplyModal();
+          showToast('✅ Reply saved!');
+          loadComplaints();
+        }
+      } catch (err) {
+        alert('Error saving reply');
+      }
+    }
+
+    // ─── Toast ──────────────────────────────────────────────
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg || '✅ Done!';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>

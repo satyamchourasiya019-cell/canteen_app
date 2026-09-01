@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Canteen Online Ordering</title>
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Canteen Order" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/icon-512.png" />
+  <meta name="description" content="Order food from your company canteen directly from your phone" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="msapplication-TileColor" content="#2563eb" />
+  <meta name="msapplication-TileImage" content="/icon-192.png" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#f0f2f5;--card:#fff;--primary:#2563eb;--primary-dark:#1d4ed8;--accent:#059669;--accent-dark:#047857;--danger:#dc2626;--text:#1e293b;--text-light:#64748b;--border:#e2e8f0;--radius:12px}
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
+    .app-header{background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);color:#fff;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(37,99,235,0.25);position:sticky;top:0;z-index:100}
+    .app-header h1{font-size:1.3rem;font-weight:700}
+    .app-header p{font-size:0.85rem;opacity:0.85;margin-top:4px}
+    .steps-bar{display:flex;justify-content:center;gap:0;padding:14px 20px;background:#fff;border-bottom:2px solid var(--border)}
+    .step{display:flex;align-items:center;gap:6px;font-size:0.75rem;font-weight:700;color:var(--text-light);padding:6px 12px;border-radius:20px;transition:all 0.3s}
+    .step.active{background:var(--primary);color:#fff}
+    .step.done{background:var(--accent);color:#fff}
+    .step-num{width:22px;height:22px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800}
+    .step.active .step-num,.step.done .step-num{background:rgba(255,255,255,0.3)}
+    .app-section{padding:16px;max-width:600px;margin:0 auto}
+    .section-title{font-size:1.2rem;font-weight:800;margin-bottom:14px}
+    .menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .menu-card{background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;transition:all 0.2s}
+    .menu-card.in-cart{border-color:var(--accent);background:#f0fdf4}
+    .menu-card-icon{font-size:2rem;margin-bottom:6px}
+    .menu-card-name{font-weight:700;font-size:0.95rem;margin-bottom:4px}
+    .menu-card-price{font-size:0.85rem;color:var(--text-light);font-weight:600;margin-bottom:10px}
+    .qty-control{display:flex;align-items:center;justify-content:center;gap:8px}
+    .qty-btn{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:#fff;font-size:1.2rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;color:var(--text)}
+    .qty-btn.plus{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .qty-btn.minus{color:var(--danger);border-color:var(--danger)}
+    .qty-val{font-size:1.1rem;font-weight:800;min-width:28px;text-align:center}
+    .emp-form{display:flex;flex-direction:column;gap:14px}
+    .form-group{display:flex;flex-direction:column;gap:4px}
+    .form-group label{font-size:0.8rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px}
+    .form-group input,.form-group select{padding:14px 16px;font-size:1rem;font-weight:600;border:2px solid var(--border);border-radius:10px;outline:none;width:100%;background:#fff}
+    .form-group input:focus,.form-group select:focus{border-color:var(--primary)}
+    .cart-section{background:#fff;border-radius:var(--radius);border:2px solid var(--border);overflow:hidden;margin-top:16px}
+    .cart-header{background:#f8fafc;padding:14px 16px;border-bottom:2px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .cart-header h3{font-size:1rem;font-weight:700}
+    .cart-count{background:var(--primary);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800}
+    .cart-items{padding:12px 16px}
+    .cart-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+    .cart-item:last-child{border-bottom:none}
+    .cart-item-name{font-weight:700;font-size:0.9rem}
+    .cart-item-qty{font-size:0.8rem;color:var(--text-light)}
+    .cart-item-right{display:flex;align-items:center;gap:12px}
+    .cart-item-price{font-weight:700;font-size:0.9rem}
+    .cart-item-remove{background:none;border:none;color:var(--danger);font-size:1.2rem;cursor:pointer;padding:4px}
+    .cart-total{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff}
+    .cart-total-amount{font-size:1.3rem;font-weight:800}
+    .cart-empty{padding:30px 16px;text-align:center;color:var(--text-light);font-style:italic}
+    .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--border);padding:14px 20px;display:flex;gap:12px;z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,0.08)}
+    .bottom-bar .btn{flex:1;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;text-align:center}
+    .btn-place-order{background:var(--accent);color:#fff}
+    .btn-place-order:disabled{opacity:0.5;cursor:not-allowed}
+    .btn-back{background:var(--border);color:var(--text)}
+    .confirmation-card{background:#fff;border:2px solid var(--accent);border-radius:var(--radius);padding:24px;text-align:center}
+    .confirmation-card .big-icon{font-size:4rem;margin-bottom:12px}
+    .confirmation-card h2{font-size:1.3rem;color:var(--accent);margin-bottom:8px}
+    .confirmation-card .order-id{font-size:2rem;font-weight:800;color:var(--primary);margin:12px 0}
+    .order-details{text-align:left;background:#f8fafc;border-radius:8px;padding:14px;margin:14px 0}
+    .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:0.9rem}
+    .detail-row span:first-child{color:var(--text-light)}
+    .detail-row span:last-child{font-weight:700}
+    .status-tracking{margin-top:20px;text-align:left}
+    .status-step{display:flex;align-items:center;gap:12px;padding:10px 0;border-left:3px solid var(--border);margin-left:12px;padding-left:20px;position:relative;color:var(--text-light)}
+    .status-step::before{content:'';position:absolute;left:-8px;width:12px;height:12px;border-radius:50%;background:var(--border)}
+    .status-step.active{border-left-color:var(--primary);color:var(--text);font-weight:700}
+    .status-step.active::before{background:var(--primary)}
+    .status-step.done{border-left-color:var(--accent);color:var(--accent)}
+    .status-step.done::before{background:var(--accent)}
+    .btn-new-order{margin-top:20px;background:var(--primary);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer}
+    .hidden{display:none!important}
+    #toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(120px);background:#059669;color:#fff;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.35);transition:transform 0.35s ease;z-index:999;pointer-events:none;white-space:nowrap}
+    /* Install banner */
+    .install-banner{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:14px 20px;text-align:center;font-weight:700;font-size:0.9rem;display:none;align-items:center;justify-content:center;gap:10px;cursor:pointer}
+    .install-banner.show{display:flex}
+    .install-banner button{background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 16px;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer}
+    @media(max-width:480px){.app-header{padding:16px 14px}.app-header h1{font-size:1.1rem}.steps-bar{padding:10px 12px;gap:4px}.step{padding:5px 8px;font-size:0.7rem}.app-section{padding:12px}.menu-grid{gap:8px}.menu-card{padding:12px 8px}.qty-btn{width:32px;height:32px;font-size:1rem}.bottom-bar{padding:10px 14px}.bottom-bar .btn{padding:12px;font-size:0.9rem}}
+    @media(min-width:640px){.menu-grid{grid-template-columns:repeat(3,1fr)}}
+  </style>
+</head>
+<body>
+  <div class="app-header">
+    <h1>🍽️ Canteen Online Ordering</h1>
+    <p>Order your food directly from your phone</p>
+  </div>
+
+  <!-- Install Banner for PWA -->
+  <div class="install-banner" id="installBanner">
+    📱 Add to Home Screen for the best experience!
+    <button onclick="installApp()">Install</button>
+    <button onclick="dismissInstall()" style="background:transparent;border:none;color:rgba(255,255,255,0.7);">✕</button>
+  </div>
+
+  <div class="steps-bar">
+    <div class="step active" id="step1"><span class="step-num">1</span> Menu</div>
+    <div class="step" id="step2"><span class="step-num">2</span> Details</div>
+    <div class="step" id="step3"><span class="step-num">3</span> Confirm</div>
+  </div>
+
+  <!-- STEP 1: MENU -->
+  <div class="app-section" id="menuSection">
+    <h2 class="section-title">📋 Select Your Items</h2>
+    <div class="menu-grid" id="menuGrid"></div>
+    <div class="cart-section" id="cartPreview">
+      <div class="cart-header"><h3>🛒 Your Cart</h3><div class="cart-count" id="cartCount">0</div></div>
+      <div id="cartBody"><div class="cart-empty">Your cart is empty. Add items from the menu above.</div></div>
+      <div class="cart-total" id="cartTotalBar" style="display:none;"><span style="font-weight:700">Total</span><span class="cart-total-amount" id="cartTotalAmount">₹0</span></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: DETAILS -->
+  <div class="app-section hidden" id="detailsSection">
+    <h2 class="section-title">👤 Your Details</h2>
+    <div class="emp-form">
+      <div class="form-group"><label>Employee Name *</label><input type="text" id="empNameInput" placeholder="Enter your name" /></div>
+      <div class="form-group"><label>Phone Number *</label><input type="tel" id="empPhoneInput" placeholder="Enter your phone number" autocomplete="tel" /></div>
+      <div class="form-group"><label>Department *</label>
+        <select id="deptInput"><option value="">Select Department</option><option>Engineering</option><option>HR</option><option>Finance</option><option>Marketing</option><option>Operations</option><option>Sales</option><option>Admin</option><option>IT</option><option>Other</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: CONFIRM -->
+  <div class="app-section hidden" id="confirmSection">
+    <h2 class="section-title">✅ Review & Place Order</h2>
+    <div class="confirmation-card">
+      <div class="big-icon">📋</div>
+      <h2>Order Summary</h2>
+      <div id="confirmItems"></div>
+      <div class="order-details" id="confirmDetails"></div>
+    </div>
+  </div>
+
+  <!-- ORDER STATUS -->
+  <div class="app-section hidden" id="statusSection">
+    <div class="confirmation-card">
+      <div class="big-icon">🎉</div>
+      <h2>Order Placed Successfully!</h2>
+      <div class="order-id" id="placedOrderId">#0000</div>
+      <p style="color:var(--text-light);font-size:0.9rem;">Please note this order number and wait for your order to be ready.</p>
+      <div class="order-details" id="statusOrderDetails"></div>
+      <div class="status-tracking">
+        <h3 style="margin-bottom:10px;font-size:0.95rem;">📍 Order Status</h3>
+        <div class="status-step" id="trackPending">🟡 Pending</div>
+        <div class="status-step" id="trackAccepted">🔵 Accepted</div>
+        <div class="status-step" id="trackPreparing">🟠 Preparing</div>
+        <div class="status-step" id="trackReady">🟢 Ready</div>
+        <div class="status-step" id="trackCompleted">⚪ Completed</div>
+      </div>
+      <button class="btn-new-order" onclick="startNewOrder()">🔄 Place Another Order</button>
+    </div>
+  </div>
+
+  <div class="bottom-bar" id="bottomBar">
+    <button class="btn btn-back" id="backBtn" onclick="goBack()" style="display:none;">← Back</button>
+    <button class="btn btn-place-order" id="nextBtn" onclick="goNext()" disabled>Proceed →</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    let currentStep = 1;
+    let cart = {};
+    let menuItems = [];
+    let currentOrderId = null;
+    let pollInterval = null;
+
+    // ─── PWA Service Worker ─────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    // ─── PWA Install Prompt ─────────────────────────────
+    let deferredPrompt = null;
+    const installBanner = document.getElementById('installBanner');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!localStorage.getItem('installDismissed')) {
+        installBanner.classList.add('show');
+      }
+    });
+
+    function installApp() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choice) => {
+          if (choice.outcome === 'accepted') {
+            installBanner.classList.remove('show');
+          }
+          deferredPrompt = null;
+        });
+      }
+    }
+
+    function dismissInstall() {
+      installBanner.classList.remove('show');
+      localStorage.setItem('installDismissed', 'true');
+    }
+
+    async function initMenu() {
+      try {
+        const res = await fetch('/api/menu/available');
+        const items = await res.json();
+        menuItems = items.map(i => ({
+          id: i.id,
+          name: i.name,
+          icon: i.icon,
+          price: i.price,
+          available: i.available === 1
+        }));
+        if (menuItems.length === 0) {
+          menuItems = [
+            {name:'Tea',icon:'☕',price:10,available:true},
+            {name:'Breakfast',icon:'🥪',price:30,available:true},
+            {name:'Lunch',icon:'🍛',price:80,available:true},
+            {name:'Dinner',icon:'🍲',price:80,available:true},
+            {name:'Snacks',icon:'🍪',price:20,available:true}
+          ];
+        }
+      } catch(e) {
+        menuItems = [{name:'Tea',icon:'☕',price:10,available:true},{name:'Breakfast',icon:'🥪',price:30,available:true},{name:'Lunch',icon:'🍛',price:80,available:true},{name:'Dinner',icon:'🍲',price:80,available:true},{name:'Snacks',icon:'🍪',price:20,available:true}];
+      }
+      renderMenu();
+    }
+
+    function renderMenu() {
+      const g = document.getElementById('menuGrid');
+      let html = '';
+      for (const item of menuItems) {
+        const inCart = cart[item.name] && cart[item.name].qty > 0;
+        const qty = inCart ? cart[item.name].qty : 0;
+        html += `<div class="menu-card${inCart?' in-cart':''}">
+          <div class="menu-card-icon">${item.icon}</div>
+          <div class="menu-card-name">${item.name}</div>
+          <div class="menu-card-price">₹${item.price}</div>
+          <div class="qty-control">
+            <button class="qty-btn minus" onclick="changeQty('${item.name}',-1)">−</button>
+            <span class="qty-val">${qty}</span>
+            <button class="qty-btn plus" onclick="changeQty('${item.name}',1)">+</button>
+          </div>
+        </div>`;
+      }
+      g.innerHTML = html;
+    }
+
+    function changeQty(name, delta) {
+      const item = menuItems.find(m => m.name === name);
+      if (!item) return;
+      if (!cart[name]) cart[name] = {name:item.name,price:item.price,qty:0,icon:item.icon};
+      cart[name].qty = Math.max(0, cart[name].qty + delta);
+      if (cart[name].qty === 0) delete cart[name];
+      renderMenu();
+      renderCart();
+      updateNextButton();
+    }
+
+    function renderCart() {
+      const items = Object.values(cart);
+      const totalQty = items.reduce((s,i) => s+i.qty, 0);
+      const totalAmount = items.reduce((s,i) => s+i.price*i.qty, 0);
+      document.getElementById('cartCount').textContent = totalQty;
+      const body = document.getElementById('cartBody');
+      const bar = document.getElementById('cartTotalBar');
+      if (!items.length) { body.innerHTML = '<div class="cart-empty">Your cart is empty.</div>'; bar.style.display='none'; return; }
+      let html = '<div class="cart-items">';
+      for (const i of items) {
+        html += `<div class="cart-item"><div><div class="cart-item-name">${i.icon} ${i.name}</div><div class="cart-item-qty">₹${i.price} × ${i.qty}</div></div><div class="cart-item-right"><span class="cart-item-price">₹${i.price*i.qty}</span><button class="cart-item-remove" onclick="removeFromCart('${i.name}')">✕</button></div></div>`;
+      }
+      html += '</div>';
+      body.innerHTML = html;
+      bar.style.display = 'flex';
+      document.getElementById('cartTotalAmount').textContent = `₹${totalAmount.toLocaleString('en-IN')}`;
+    }
+
+    function removeFromCart(name) { delete cart[name]; renderMenu(); renderCart(); updateNextButton(); }
+    function getCartTotal() { return Object.values(cart).reduce((s,i) => s+i.price*i.qty, 0); }
+
+    function goNext() {
+      if (currentStep === 1) {
+        if (!Object.keys(cart).length) { showToast('⚠️ Add items first'); return; }
+        currentStep = 2; showSection('detailsSection');
+      } else if (currentStep === 2) {
+        if (!document.getElementById('empNameInput').value.trim()) { showToast('⚠️ Enter name'); return; }
+        if (!document.getElementById('empPhoneInput').value.trim()) { showToast('⚠️ Enter phone number'); return; }
+        if (!document.getElementById('deptInput').value) { showToast('⚠️ Select department'); return; }
+        currentStep = 3; showSection('confirmSection'); renderConfirmation();
+      } else if (currentStep === 3) {
+        placeOrder();
+      }
+      updateSteps(); updateBottomBar();
+    }
+
+    function goBack() {
+      if (currentStep === 2) { currentStep = 1; showSection('menuSection'); }
+      else if (currentStep === 3) { currentStep = 2; showSection('detailsSection'); }
+      updateSteps(); updateBottomBar();
+    }
+
+    function showSection(id) {
+      ['menuSection','detailsSection','confirmSection','statusSection'].forEach(s => document.getElementById(s).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function updateSteps() {
+      for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById(`step${i}`);
+        el.classList.remove('active','done');
+        if (i < currentStep) el.classList.add('done');
+        if (i === currentStep) el.classList.add('active');
+      }
+    }
+
+    function updateBottomBar() {
+      const bar = document.getElementById('bottomBar');
+      if (currentStep === 4) { bar.style.display='none'; return; }
+      bar.style.display = 'flex';
+      document.getElementById('backBtn').style.display = currentStep > 1 ? 'block' : 'none';
+      document.getElementById('nextBtn').textContent = currentStep === 3 ? '🛒 Place Order' : 'Proceed →';
+      updateNextButton();
+    }
+
+    function updateNextButton() {
+      document.getElementById('nextBtn').disabled = currentStep === 1 && !Object.keys(cart).length;
+    }
+
+    function renderConfirmation() {
+      const items = Object.values(cart);
+      const total = getCartTotal();
+      let html = '';
+      for (const i of items) html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.9rem;"><span>${i.icon} ${i.name} × ${i.qty}</span><span style="font-weight:700">₹${i.price*i.qty}</span></div>`;
+      document.getElementById('confirmItems').innerHTML = html;
+      const now = new Date();
+      const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      document.getElementById('confirmDetails').innerHTML = `
+        <div class="detail-row"><span>Employee Name</span><span>${document.getElementById('empNameInput').value}</span></div>
+        <div class="detail-row"><span>Phone Number</span><span>${document.getElementById('empPhoneInput').value}</span></div>
+        <div class="detail-row"><span>Department</span><span>${document.getElementById('deptInput').value}</span></div>
+        <div class="detail-row"><span>Items</span><span>${items.length} item(s)</span></div>
+        <div class="detail-row"><span>Order Time</span><span>${time}</span></div>
+        <div class="detail-row" style="border-top:2px solid var(--primary);padding-top:8px;margin-top:4px;"><span style="font-weight:800">Total</span><span style="font-weight:800;font-size:1.1rem;color:var(--accent)">₹${total.toLocaleString('en-IN')}</span></div>`;
+    }
+
+    async function placeOrder() {
+      const btn = document.getElementById('nextBtn');
+      btn.disabled = true; btn.textContent = 'Placing Order...';
+      const items = Object.values(cart).map(i => ({name:i.name,price:i.price,quantity:i.qty,icon:i.icon}));
+      const total = getCartTotal();
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            employeeName: document.getElementById('empNameInput').value.trim(),
+            phoneNumber: document.getElementById('empPhoneInput').value.trim(),
+            department: document.getElementById('deptInput').value,
+            items, totalAmount: total
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Order placed!');
+          currentStep = 4;
+          showSection('statusSection');
+          document.getElementById('placedOrderId').textContent = `#${data.order.order_id}`;
+          document.getElementById('bottomBar').style.display = 'none';
+          renderStatusDetails(data.order);
+          startStatusPolling(data.order.id);
+        } else {
+          showToast('❌ Error: ' + (data.error || 'Unknown'));
+          btn.disabled = false; btn.textContent = '🛒 Place Order';
+        }
+      } catch(e) {
+        showToast('❌ Network error');
+        btn.disabled = false; btn.textContent = '🛒 Place Order';
+      }
+    }
+
+    function renderStatusDetails(order) {
+      const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+      const itemsHtml = items.map(i => `<div class="detail-row"><span>${i.icon||''} ${i.name} × ${i.quantity}</span><span>₹${i.price*i.quantity}</span></div>`).join('');
+      const time = order.created_at ? new Date(order.created_at).toTimeString().substring(0,5) : '—';
+      document.getElementById('statusOrderDetails').innerHTML = `
+        <div class="detail-row"><span>Employee</span><span>${order.employee_name} (${order.phone_number || 'N/A'})</span></div>
+        <div class="detail-row"><span>Department</span><span>${order.department}</span></div>
+        ${itemsHtml}
+        <div class="detail-row" style="border-top:2px solid var(--primary);padding-top:6px;"><span style="font-weight:800">Total</span><span style="font-weight:800;color:var(--accent)">₹${order.total_amount.toLocaleString('en-IN')}</span></div>
+        <div class="detail-row"><span>Order Time</span><span>${time}</span></div>`;
+    }
+
+    function startStatusPolling(dbId) {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/orders?date=${new Date().toISOString().substring(0,10)}`);
+          const orders = await res.json();
+          const myOrder = orders.find(o => o.id === dbId);
+          if (myOrder) updateStatusUI(myOrder.status);
+        } catch(e) {}
+      }, 3000);
+    }
+
+    function updateStatusUI(status) {
+      const steps = ['pending','accepted','preparing','ready','completed'];
+      const idx = steps.indexOf(status);
+      steps.forEach((s,i) => {
+        const el = document.getElementById('track'+s.charAt(0).toUpperCase()+s.slice(1));
+        if (!el) return;
+        el.classList.remove('active','done');
+        if (i < idx) el.classList.add('done');
+        if (i === idx) el.classList.add('active');
+      });
+    }
+
+    function startNewOrder() {
+      cart = {}; currentStep = 1; currentOrderId = null;
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      document.getElementById('empNameInput').value = '';
+      document.getElementById('empPhoneInput').value = '';
+      document.getElementById('deptInput').value = '';
+      showSection('menuSection'); updateSteps(); updateBottomBar(); renderMenu(); renderCart();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.transform = 'translateX(-50%) translateY(0)';
+      setTimeout(() => { t.style.transform = 'translateX(-50%) translateY(120px)'; }, 2500);
+    }
+
+    // Check if booking is open
+    async function checkBookingOpen() {
+      try {
+        const res = await fetch('/api/booking-open');
+        const data = await res.json();
+        if (!data.open) {
+          document.getElementById('menuSection').innerHTML = `
+            <div style="text-align:center;padding:60px 20px;">
+              <div style="font-size:5rem;margin-bottom:16px;">🔒</div>
+              <h2 style="color:var(--danger);font-size:1.5rem;margin-bottom:12px;">Booking is Closed</h2>
+              <p style="color:var(--text-light);font-size:1rem;max-width:400px;margin:0 auto;line-height:1.6;">${data.message || 'Online ordering is currently not available. Please try again during operating hours.'}</p>
+              <p style="color:var(--text-light);font-size:0.85rem;margin-top:12px;">If you need to place an urgent order, please contact the canteen directly.</p>
+              <button class="btn-new-order" onclick="checkBookingOpen()" style="margin-top:20px;">🔄 Refresh</button>
+            </div>
+          `;
+          document.getElementById('cartPreview').style.display = 'none';
+          document.getElementById('bottomBar').style.display = 'none';
+        }
+      } catch(e) {
+        console.error('Error checking booking status:', e);
+      }
+    }
+
+    initMenu(); updateSteps(); updateBottomBar(); checkBookingOpen();
+  </script>
+</body>
+</html>

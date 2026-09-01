@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Employee Records</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ DATE BANNER ═══════════════ -->
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <!-- ═══════════════ EMPLOYEE INPUT ═══════════════ -->
+  <section class="card emp-input-card">
+    <label>Enter Employee Number</label>
+    <div class="emp-row">
+      <input
+        type="number"
+        id="empNo"
+        min="1"
+        max="300"
+        placeholder="1 – 300"
+      />
+      <button id="loadBtn" class="btn btn-primary">View Records →</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════ RECORDS SECTION ═══════════════ -->
+  <section class="card book-card" id="recordsSection" style="display:none;">
+    <div class="book-header">
+      <h2 id="recordsTitle">Employee Records</h2>
+      <div class="book-actions">
+        <div class="month-badge" id="yearBadge"></div>
+        <button class="btn btn-excel" onclick="exportExcel()">📥 Export Bill (Excel)</button>
+      </div>
+    </div>
+
+    <!-- ─── Year Filter ─── -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Year:</label>
+        <select id="yearFilter"></select>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="loadRecords()">Load</button>
+    </div>
+
+    <!-- ─── Yearly & Half-Yearly Totals ─── -->
+    <div class="totals-row">
+      <div class="total-box">
+        <span class="total-label">Yearly Total</span>
+        <span class="total-val yearly" id="yearlyTotal">₹0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">H1 (Jan-Jun)</span>
+        <span class="total-val h1" id="h1Total">₹0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">H2 (Jul-Dec)</span>
+        <span class="total-val h2" id="h2Total">₹0</span>
+      </div>
+    </div>
+
+    <!-- ─── Monthly Breakdown ─── -->
+    <h3>📊 Monthly Breakdown</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>☕ Tea</th>
+            <th>🥪 Breakfast</th>
+            <th>🍛 Lunch</th>
+            <th>🍲 Dinner</th>
+            <th>🍪 Snacks</th>
+            <th>🍽️ Other</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="monthlyBody">
+          <tr class="empty-row"><td colspan="8">No records yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─── Quick Export by Period ─── -->
+    <div class="export-section">
+      <h3>📥 Quick Export Bill</h3>
+      <p class="hint-text">Generate a professional Excel bill for any period</p>
+
+      <div class="export-options">
+        <div class="export-card">
+          <h4>📅 Monthly Bill</h4>
+          <div class="export-row">
+            <select id="exportMonth">
+            </select>
+            <select id="exportMonthYear">
+            </select>
+            <button class="btn btn-excel" onclick="exportPeriod('monthly')">📥 Download</button>
+          </div>
+        </div>
+
+        <div class="export-card">
+          <h4>📆 Half-Yearly Bill</h4>
+          <div class="export-row">
+            <select id="exportHalf">
+              <option value="1">Jan – Jun (H1)</option>
+              <option value="2">Jul – Dec (H2)</option>
+            </select>
+            <select id="exportHalfYear">
+            </select>
+            <button class="btn btn-excel" onclick="exportPeriod('half-yearly')">📥 Download</button>
+          </div>
+        </div>
+
+        <div class="export-card">
+          <h4>🗓️ Full Year Bill</h4>
+          <div class="export-row">
+            <select id="exportFullYear">
+            </select>
+            <button class="btn btn-excel" onclick="exportPeriod('yearly')">📥 Download</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const monthNames = [
+      '','January','February','March','April','May','June',
+      'July','August','September','October','November','December',
+    ];
+
+    let currentEmp = null;
+    let prices = {};
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+
+      const pRes = await fetch('/api/prices');
+      prices = await pRes.json();
+
+      // Populate year dropdowns
+      const yearFilter = document.getElementById('yearFilter');
+      const exportMonthYear = document.getElementById('exportMonthYear');
+      const exportHalfYear = document.getElementById('exportHalfYear');
+      const exportFullYear = document.getElementById('exportFullYear');
+
+      for (let y = d.year; y >= d.year - 10; y--) {
+        [yearFilter, exportMonthYear, exportHalfYear, exportFullYear].forEach(sel => {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = y;
+          if (y === d.year) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+
+      // Populate month dropdown
+      const exportMonth = document.getElementById('exportMonth');
+      for (let i = 1; i <= 12; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = monthNames[i];
+        if (i === d.month) opt.selected = true;
+        exportMonth.appendChild(opt);
+      }
+
+      // Auto-load if employee number is in URL
+      const pathParts = window.location.pathname.split('/');
+      if (pathParts.length >= 3 && pathParts[2]) {
+        const empNo = parseInt(pathParts[2], 10);
+        if (empNo >= 1 && empNo <= 300) {
+          document.getElementById('empNo').value = empNo;
+          currentEmp = empNo;
+          document.getElementById('recordsSection').style.display = 'block';
+          loadRecords();
+        }
+      }
+    })();
+
+    document.getElementById('loadBtn').addEventListener('click', loadRecords);
+    document.getElementById('empNo').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadRecords();
+    });
+
+    async function loadRecords() {
+      const empNo = parseInt(document.getElementById('empNo').value, 10);
+      if (!empNo || empNo < 1 || empNo > 300) {
+        const inp = document.getElementById('empNo');
+        inp.focus();
+        inp.classList.add('shake');
+        setTimeout(() => inp.classList.remove('shake'), 400);
+        return;
+      }
+
+      currentEmp = empNo;
+      const year = document.getElementById('yearFilter').value;
+
+      const res = await fetch(`/api/records/${empNo}/${year}`);
+      const data = await res.json();
+
+      document.getElementById('recordsTitle').textContent = `Employee #${empNo} – Records`;
+      document.getElementById('yearBadge').textContent = `${year}`;
+
+      document.getElementById('yearlyTotal').textContent =
+        `₹${data.yearly_total.toLocaleString('en-IN')}`;
+      document.getElementById('h1Total').textContent =
+        `₹${data.h1_total.toLocaleString('en-IN')}`;
+      document.getElementById('h2Total').textContent =
+        `₹${data.h2_total.toLocaleString('en-IN')}`;
+
+      // Monthly breakdown
+      const tbody = document.getElementById('monthlyBody');
+      if (data.monthly_data.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No records for this year.</td></tr>';
+      } else {
+        let html = '';
+        for (const m of data.monthly_data) {
+          const otherLabel = m.other_amount > 0 ? `₹${m.other_amount.toLocaleString('en-IN')}` : '—';
+          html += `<tr>
+            <td class="date-cell">${monthNames[m.entry_month]}</td>
+            <td>${m.tea_qty} (₹${(m.tea_qty * prices.tea).toLocaleString('en-IN')})</td>
+            <td>${m.breakfast_qty} (₹${(m.breakfast_qty * prices.breakfast).toLocaleString('en-IN')})</td>
+            <td>${m.lunch_qty} (₹${(m.lunch_qty * prices.lunch).toLocaleString('en-IN')})</td>
+            <td>${m.dinner_qty} (₹${(m.dinner_qty * prices.dinner).toLocaleString('en-IN')})</td>
+            <td>${m.snacks_qty} (₹${(m.snacks_qty * prices.snacks).toLocaleString('en-IN')})</td>
+            <td>${otherLabel}</td>
+            <td class="total-cell">₹${m.total.toLocaleString('en-IN')}</td>
+          </tr>`;
+        }
+        tbody.innerHTML = html;
+      }
+
+      document.getElementById('recordsSection').style.display = 'block';
+      document.getElementById('recordsSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ─── Export ─────────────────────────────────────────────
+    function exportExcel() {
+      if (!currentEmp) return;
+      const year = document.getElementById('yearFilter').value;
+      window.location.href = `/api/export/${currentEmp}?period=yearly&year=${year}`;
+    }
+
+    function exportPeriod(period) {
+      if (!currentEmp) {
+        alert('Please load an employee first.');
+        return;
+      }
+
+      const year = document.getElementById('exportMonthYear').value;
+      let url = `/api/export/${currentEmp}?period=${period}&year=${year}`;
+
+      if (period === 'monthly') {
+        url += `&month=${document.getElementById('exportMonth').value}`;
+      } else if (period === 'half-yearly') {
+        url += `&half=${document.getElementById('exportHalf').value}`;
+      }
+
+      window.location.href = url;
+    }
+  </script>
+</body>
+</html>

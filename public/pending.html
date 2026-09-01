@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Pending Amounts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn active">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ DATE BANNER ═══════════════ -->
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <!-- ═══════════════ PENDING SECTION ═══════════════ -->
+  <section class="card book-card">
+    <div class="section-header">
+      <h2>⏳ All Employees – Pending Amounts</h2>
+      <div class="section-actions">
+        <button class="btn btn-excel" onclick="exportPendingExcel()">📥 Export Excel</button>
+      </div>
+    </div>
+
+    <!-- ─── Filter ─── -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Year:</label>
+        <select id="yearFilter"></select>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="loadPending()">Load</button>
+    </div>
+
+    <!-- ─── Summary ─── -->
+    <div class="totals-row">
+      <div class="total-box">
+        <span class="total-label">Total Employees</span>
+        <span class="total-val monthly" id="empCount">0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">Grand Total Pending</span>
+        <span class="total-val h2" id="grandPending">₹0</span>
+      </div>
+    </div>
+
+    <!-- ─── Pending Table ─── -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Employee No</th>
+            <th>Name</th>
+            <th>Total Bill</th>
+            <th>Total Paid</th>
+            <th>Total Pending</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="pendingBody">
+          <tr class="empty-row"><td colspan="8">Loading pending amounts...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="hint-text">💡 Click on Employee No to go to their Payment page. Pending amounts auto-carry forward to the next month.</p>
+  </section>
+
+  <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="passwordModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🔐 Password Required</h2>
+        <button class="modal-close" onclick="closePasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Enter password to access Pending page:</p>
+        <div class="field-group" style="margin-top:12px;">
+          <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <p class="password-error" id="passwordError" style="color:var(--danger);display:none;margin-top:8px;font-weight:700;">❌ Incorrect password</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="verifyPassword()">🔓 Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const monthNames = [
+      '','January','February','March','April','May','June',
+      'July','August','September','October','November','December',
+    ];
+
+    let authenticated = false;
+    let currentYear;
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+      currentYear = d.year;
+
+      const yearSel = document.getElementById('yearFilter');
+      for (let y = d.year; y >= d.year - 10; y--) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === d.year) opt.selected = true;
+        yearSel.appendChild(opt);
+      }
+
+      showPasswordModal();
+    })();
+
+    // ─── Password ───────────────────────────────────────────
+    function showPasswordModal() {
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('passwordModal').style.display = 'flex';
+      document.getElementById('passwordInput').focus();
+    }
+
+    function closePasswordModal() {
+      if (!authenticated) {
+        window.location.href = '/';
+      }
+      document.getElementById('passwordModal').style.display = 'none';
+    }
+
+    async function verifyPassword() {
+      const pw = document.getElementById('passwordInput').value;
+      try {
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          authenticated = true;
+          closePasswordModal();
+          loadPending();
+        } else {
+          document.getElementById('passwordError').style.display = 'block';
+          document.getElementById('passwordInput').value = '';
+          document.getElementById('passwordInput').focus();
+        }
+      } catch (e) {
+        alert('Error verifying password');
+      }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyPassword();
+    });
+
+    // ─── Load Pending ───────────────────────────────────────
+    async function loadPending() {
+      const year = document.getElementById('yearFilter').value;
+      const tbody = document.getElementById('pendingBody');
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">⏳ Loading pending amounts...</td></tr>';
+
+      try {
+        const res = await fetch(`/api/payments/pending/all/${year}`);
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const data = await res.json();
+
+        document.getElementById('empCount').textContent = data.count || 0;
+        document.getElementById('grandPending').textContent = `₹${(data.grand_total_pending || 0).toLocaleString('en-IN')}`;
+
+        if (!data.employees || data.employees.length === 0) {
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="8">✅ No pending amounts found for this year. All clear!</td></tr>';
+        } else {
+          let html = '';
+          let i = 1;
+          for (const emp of data.employees) {
+            let statusHtml = '';
+            if (emp.total_pending <= 0) {
+              statusHtml = '<span style="color:#059669;font-weight:700;">✅ Clear</span>';
+            } else if (emp.total_paid > 0) {
+              statusHtml = '<span style="color:#d97706;font-weight:700;">🔄 Partial</span>';
+            } else {
+              statusHtml = '<span style="color:#dc2626;font-weight:700;">❌ Unpaid</span>';
+            }
+
+            html += `<tr>
+              <td>${i++}</td>
+              <td class="date-cell"><a href="/payment?emp=${emp.employee_number}" class="emp-link">${emp.employee_number}</a></td>
+              <td>${emp.employee_name || '—'}</td>
+              <td>₹${(emp.total_bill || 0).toLocaleString('en-IN')}</td>
+              <td class="total-cell">₹${(emp.total_paid || 0).toLocaleString('en-IN')}</td>
+              <td style="font-weight:800;color:${emp.total_pending > 0 ? 'var(--danger)' : 'var(--accent)'};">₹${(emp.total_pending || 0).toLocaleString('en-IN')}</td>
+              <td>${statusHtml}</td>
+              <td><a href="/payment?emp=${emp.employee_number}" class="btn btn-primary btn-sm" onclick="setEmpForPayment(${emp.employee_number})">Pay</a></td>
+            </tr>`;
+          }
+          tbody.innerHTML = html;
+        }
+      } catch (err) {
+        console.error('Error loading pending:', err);
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="8">❌ Error loading pending amounts. Please try again.<br><small>${err.message}</small></td></tr>`;
+        document.getElementById('empCount').textContent = '0';
+        document.getElementById('grandPending').textContent = '₹0';
+      }
+    }
+
+    function setEmpForPayment(empNo) {
+      // Store in sessionStorage so payment page can auto-load
+      sessionStorage.setItem('pendingEmpNo', empNo);
+    }
+
+    // ─── Export Excel ────────────────────────────────────────
+    function exportPendingExcel() {
+      const year = document.getElementById('yearFilter').value;
+      // Build simple CSV-style data for download
+      const rows = document.querySelectorAll('#pendingBody tr');
+      let csv = 'No,Employee No,Name,Total Bill,Total Paid,Total Pending,Status\n';
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 7 && !row.classList.contains('empty-row')) {
+          const empNo = cells[1]?.textContent?.trim() || '';
+          const name = cells[2]?.textContent?.trim() || '';
+          const bill = cells[3]?.textContent?.trim() || '';
+          const paid = cells[4]?.textContent?.trim() || '';
+          const pending = cells[5]?.textContent?.trim() || '';
+          const status = cells[6]?.textContent?.trim() || '';
+          csv += `,"${empNo}","${name}","${bill}","${paid}","${pending}","${status}"\n`;
+        }
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `Pending_Amounts_${year}.csv`;
+      link.click();
+    }
+  </script>
+</body>
+</html>

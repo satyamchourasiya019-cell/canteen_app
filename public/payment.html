@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Payment</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn active">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ DATE BANNER ═══════════════ -->
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <!-- ═══════════════ EMPLOYEE INPUT ═══════════════ -->
+  <section class="card emp-input-card">
+    <label for="empNo">Enter Employee Number</label>
+    <div class="emp-row">
+      <input
+        type="number"
+        id="empNo"
+        min="1"
+        max="300"
+        placeholder="1 – 300"
+        autofocus
+      />
+      <button id="loadBtn" class="btn btn-primary">View Payment →</button>
+    </div>
+    <div class="emp-name-display" id="empNameDisplay" style="display:none;">
+      <span class="emp-name-label">Employee Name:</span>
+      <span class="emp-name-value" id="empNameValue"></span>
+    </div>
+  </section>
+
+  <!-- ═══════════════ PAYMENT SECTION ═══════════════ -->
+  <section class="card book-card" id="paymentSection" style="display:none;">
+    <div class="book-header">
+      <h2 id="paymentTitle">Payment Details</h2>
+      <div class="book-actions">
+        <div class="month-badge" id="monthBadge"></div>
+      </div>
+    </div>
+
+    <!-- ─── Filters ─── -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Month:</label>
+        <select id="monthFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>Year:</label>
+        <select id="yearFilter"></select>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="loadPayment()">Load</button>
+    </div>
+
+    <!-- ─── Bill Summary ─── -->
+    <div class="totals-row">
+      <div class="total-box">
+        <span class="total-label">Current Month Bill</span>
+        <span class="total-val monthly" id="currentBill">₹0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">Carry Forward (Pending)</span>
+        <span class="total-val h2" id="carryForward">₹0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">Total Bill</span>
+        <span class="total-val yearly" id="totalBill">₹0</span>
+      </div>
+    </div>
+
+    <div class="totals-row">
+      <div class="total-box">
+        <span class="total-label">Amount Paid</span>
+        <span class="total-val alltime" id="amountPaid">₹0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">Pending Amount</span>
+        <span class="total-val h1" id="pendingAmount">₹0</span>
+      </div>
+      <div class="total-box">
+        <span class="total-label">Status</span>
+        <span class="total-val" id="paymentStatus" style="font-size:1.2rem;">—</span>
+      </div>
+    </div>
+
+    <!-- ─── Record Payment ─── -->
+    <div class="payment-form-section" id="paymentFormSection">
+      <h3>💳 Record Payment</h3>
+      <div class="filter-bar" style="margin-top:12px;">
+        <div class="filter-group" style="flex:1;min-width:150px;">
+          <label>Amount to Pay (₹)</label>
+          <input type="number" id="payAmount" min="0" step="1" placeholder="0" style="padding:10px 14px;font-size:1rem;font-weight:600;border:2px solid var(--border);border-radius:8px;width:100%;" />
+        </div>
+        <div class="filter-group" style="flex:1;min-width:150px;">
+          <label>Status</label>
+          <select id="payStatus" style="padding:10px 14px;font-size:1rem;font-weight:600;border:2px solid var(--border);border-radius:8px;width:100%;">
+            <option value="unpaid">❌ Unpaid</option>
+            <option value="partial">🔄 Partially Paid</option>
+            <option value="paid">✅ Fully Paid</option>
+          </select>
+        </div>
+        <div class="filter-group" style="flex:1;min-width:150px;">
+          <label>Note (Optional)</label>
+          <input type="text" id="payNote" placeholder="e.g. Cash, UPI..." style="padding:10px 14px;font-size:1rem;border:2px solid var(--border);border-radius:8px;width:100%;" />
+        </div>
+      </div>
+      <button class="btn btn-save" style="margin-top:14px;" onclick="recordPayment()">💾 Record Payment</button>
+    </div>
+
+    <!-- ─── Payment History ─── -->
+    <div style="margin-top:28px;">
+      <h3>📜 Payment History</h3>
+      <div class="table-wrap" style="margin-top:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Total Bill</th>
+              <th>Amount Paid</th>
+              <th>Status</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="paymentHistoryBody">
+            <tr class="empty-row"><td colspan="5">No payment history yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">✅ Payment Recorded!</div>
+  </section>
+
+  <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="passwordModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🔐 Password Required</h2>
+        <button class="modal-close" onclick="closePasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Enter password to access Payment page:</p>
+        <div class="field-group" style="margin-top:12px;">
+          <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <p class="password-error" id="passwordError" style="color:var(--danger);display:none;margin-top:8px;font-weight:700;">❌ Incorrect password</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="verifyPassword()">🔓 Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const monthNames = [
+      '','January','February','March','April','May','June',
+      'July','August','September','October','November','December',
+    ];
+
+    let currentEmp = null;
+    let currentMonth, currentYear;
+    let authenticated = false;
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+      currentYear = d.year;
+      currentMonth = d.month;
+
+      // Populate month dropdown
+      const monthSel = document.getElementById('monthFilter');
+      for (let i = 1; i <= 12; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = monthNames[i];
+        if (i === d.month) opt.selected = true;
+        monthSel.appendChild(opt);
+      }
+
+      // Populate year dropdown
+      const yearSel = document.getElementById('yearFilter');
+      for (let y = d.year; y >= d.year - 10; y--) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === d.year) opt.selected = true;
+        yearSel.appendChild(opt);
+      }
+
+      // Show password modal
+      showPasswordModal();
+    })();
+
+    function showPasswordModal() {
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('passwordModal').style.display = 'flex';
+      document.getElementById('passwordInput').focus();
+    }
+
+    function closePasswordModal() {
+      if (!authenticated) {
+        window.location.href = '/';
+      }
+      document.getElementById('passwordModal').style.display = 'none';
+    }
+
+    async function verifyPassword() {
+      const pw = document.getElementById('passwordInput').value;
+      try {
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          authenticated = true;
+          closePasswordModal();
+        } else {
+          document.getElementById('passwordError').style.display = 'block';
+          document.getElementById('passwordInput').value = '';
+          document.getElementById('passwordInput').focus();
+        }
+      } catch (e) {
+        alert('Error verifying password');
+      }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyPassword();
+    });
+
+    // ─── Load Payment ───────────────────────────────────────
+    document.getElementById('loadBtn').addEventListener('click', loadPayment);
+    document.getElementById('empNo').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadPayment();
+    });
+
+    async function loadPayment() {
+      const empInput = document.getElementById('empNo');
+      const empNo = parseInt(empInput.value, 10);
+
+      if (!empNo || empNo < 1 || empNo > 300) {
+        empInput.focus();
+        empInput.classList.add('shake');
+        setTimeout(() => empInput.classList.remove('shake'), 400);
+        return;
+      }
+
+      currentEmp = empNo;
+
+      // Fetch employee name
+      try {
+        const empRes = await fetch(`/api/employees/${empNo}`);
+        const empData = await empRes.json();
+        if (empData.name) {
+          document.getElementById('empNameDisplay').style.display = 'flex';
+          document.getElementById('empNameValue').textContent = empData.name;
+        } else {
+          document.getElementById('empNameDisplay').style.display = 'none';
+        }
+      } catch (e) {
+        document.getElementById('empNameDisplay').style.display = 'none';
+      }
+
+      const year = document.getElementById('yearFilter').value;
+      const month = document.getElementById('monthFilter').value;
+
+      try {
+        const res = await fetch(`/api/payments/${empNo}/${year}/${month}`);
+        const data = await res.json();
+
+        document.getElementById('paymentTitle').textContent = `Employee #${empNo} – Payment Details`;
+        document.getElementById('monthBadge').textContent = `${monthNames[month]} ${year}`;
+
+        document.getElementById('currentBill').textContent = `₹${data.current_month_bill.toLocaleString('en-IN')}`;
+        document.getElementById('carryForward').textContent = `₹${data.carry_forward.toLocaleString('en-IN')}`;
+        document.getElementById('totalBill').textContent = `₹${data.total_bill.toLocaleString('en-IN')}`;
+        document.getElementById('amountPaid').textContent = `₹${data.amount_paid.toLocaleString('en-IN')}`;
+        document.getElementById('pendingAmount').textContent = `₹${data.pending_amount.toLocaleString('en-IN')}`;
+
+        // Status display
+        const statusEl = document.getElementById('paymentStatus');
+        if (data.status === 'paid') {
+          statusEl.innerHTML = '✅ PAID';
+          statusEl.style.color = '#059669';
+        } else if (data.status === 'partial') {
+          statusEl.innerHTML = '🔄 PARTIAL';
+          statusEl.style.color = '#d97706';
+        } else {
+          statusEl.innerHTML = '❌ UNPAID';
+          statusEl.style.color = '#dc2626';
+        }
+
+        // Pre-fill payment form
+        document.getElementById('payAmount').value = data.pending_amount > 0 ? data.pending_amount : '';
+        document.getElementById('payStatus').value = data.pending_amount === 0 ? 'paid' : (data.amount_paid > 0 ? 'partial' : 'unpaid');
+
+        // Payment history
+        const tbody = document.getElementById('paymentHistoryBody');
+        if (data.payment_history.length === 0) {
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No payment history yet.</td></tr>';
+        } else {
+          let html = '';
+          for (const p of data.payment_history) {
+            const billRes = await fetch(`/api/payments/${empNo}/${p.year}/${p.month}`);
+            const billData = await billRes.json();
+            let statusHtml = '';
+            if (p.status === 'paid') statusHtml = '<span style="color:#059669;font-weight:700;">✅ Paid</span>';
+            else if (p.status === 'partial') statusHtml = '<span style="color:#d97706;font-weight:700;">🔄 Partial</span>';
+            else statusHtml = '<span style="color:#dc2626;font-weight:700;">❌ Unpaid</span>';
+
+            html += `<tr>
+              <td class="date-cell">${monthNames[p.month]} ${p.year}</td>
+              <td>₹${billData.total_bill.toLocaleString('en-IN')}</td>
+              <td class="total-cell">₹${p.amount_paid.toLocaleString('en-IN')}</td>
+              <td>${statusHtml}</td>
+              <td>${p.note || '—'}</td>
+            </tr>`;
+          }
+          tbody.innerHTML = html;
+        }
+
+        document.getElementById('paymentSection').style.display = 'block';
+        document.getElementById('paymentSection').scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        console.error(err);
+        alert('Error loading payment data');
+      }
+    }
+
+    // ─── Record Payment ─────────────────────────────────────
+    async function recordPayment() {
+      if (!currentEmp) return;
+
+      const year = document.getElementById('yearFilter').value;
+      const month = document.getElementById('monthFilter').value;
+      const amountPaid = parseFloat(document.getElementById('payAmount').value) || 0;
+      const status = document.getElementById('payStatus').value;
+      const note = document.getElementById('payNote').value;
+
+      if (amountPaid <= 0 && status !== 'unpaid') {
+        alert('Please enter a valid amount');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employee_number: currentEmp,
+            month: parseInt(month),
+            year: parseInt(year),
+            amount_paid: amountPaid,
+            status: status,
+            note: note,
+          }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast('✅ Payment Recorded Successfully!');
+          loadPayment(); // Refresh
+        }
+      } catch (err) {
+        alert('Error recording payment');
+      }
+    }
+
+    // ─── Toast ──────────────────────────────────────────────
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg || '✅ Done!';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>

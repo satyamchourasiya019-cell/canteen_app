@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Online Orders</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .order-status-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;text-transform:uppercase;white-space:nowrap}
+    .status-pending{background:#fef3c7;color:#92400e;border:2px solid #fcd34d}
+    .status-accepted{background:#dbeafe;color:#1e40af;border:2px solid #93c5fd}
+    .status-preparing{background:#ffedd5;color:#9a3412;border:2px solid #fdba74}
+    .status-ready{background:#d1fae5;color:#065f46;border:2px solid #6ee7b7}
+    .status-completed{background:#f1f5f9;color:#475569;border:2px solid #cbd5e1}
+    .status-cancelled{background:#fee2e2;color:#991b1b;border:2px solid #fca5a5}
+    .order-card{background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;transition:border-color 0.2s,box-shadow 0.2s}
+    .order-card:hover{border-color:var(--primary);box-shadow:0 4px 16px rgba(37,99,235,0.1)}
+    .order-card.flash{animation:flash 1s ease 3}
+    @keyframes flash{0%,100%{border-color:var(--primary)}50%{border-color:#f59e0b}}
+    .order-card-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+    .order-number{font-size:1.3rem;font-weight:800;color:var(--primary)}
+    .order-time{font-size:0.85rem;color:var(--text-light);font-weight:600}
+    .order-card-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+    .order-info-item{display:flex;flex-direction:column;gap:2px}
+    .order-info-label{font-size:0.75rem;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px}
+    .order-info-value{font-size:0.95rem;font-weight:700;color:var(--text)}
+    .order-items-list{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:14px}
+    .order-items-list h4{font-size:0.8rem;color:var(--text-light);text-transform:uppercase;margin-bottom:8px}
+    .order-item-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)}
+    .order-item-row:last-child{border-bottom:none}
+    .order-item-name{font-weight:600;font-size:0.9rem}
+    .order-item-qty{font-weight:700;color:var(--primary);font-size:0.9rem}
+    .order-total{display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid var(--primary);margin-top:4px}
+    .order-total-amount{font-weight:800;font-size:1.1rem;color:var(--accent)}
+    .order-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .order-actions select{padding:10px 14px;font-size:0.9rem;font-weight:600;border:2px solid var(--border);border-radius:8px;outline:none;background:#fff;cursor:pointer;flex:1;min-width:150px}
+    .notif-bar{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:14px 24px;border-radius:10px;margin-bottom:16px;display:none;align-items:center;gap:12px;font-weight:700;animation:slideDown 0.3s ease}
+    .notif-bar.show{display:flex}
+    @keyframes slideDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .filter-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .filter-tab{padding:10px 20px;border:2px solid var(--border);border-radius:8px;background:#fff;font-weight:600;font-size:0.9rem;cursor:pointer;transition:all 0.2s;color:var(--text)}
+    .filter-tab:hover{border-color:var(--primary);background:#eff6ff}
+    .filter-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .search-bar{display:flex;gap:12px;margin-bottom:16px}
+    .search-bar input{flex:1;padding:12px 16px;font-size:1rem;font-weight:600;border:2px solid var(--border);border-radius:8px;outline:none;transition:border-color 0.2s}
+    .search-bar input:focus{border-color:var(--primary)}
+    .no-orders-msg{text-align:center;padding:40px 20px;color:var(--text-light);font-style:italic}
+    .sound-toggle{display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;color:var(--text-light);cursor:pointer}
+    @media(max-width:640px){.order-card-info{grid-template-columns:1fr}.order-actions{flex-direction:column}.filter-tabs{gap:6px}.filter-tab{padding:8px 14px;font-size:0.8rem}}
+  </style>
+</head>
+<body>
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/online-orders" class="nav-btn active">📱 Online Orders</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <div class="notif-bar" id="notifBar">
+    🔔 <span id="notifText">New order received!</span>
+    <button onclick="document.getElementById('notifBar').classList.remove('show')" style="background:rgba(255,255,255,0.3);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;">✕ Dismiss</button>
+  </div>
+
+  <div style="max-width:1100px;margin:0 auto;padding:0 20px;">
+    <div class="totals-row" style="margin-top:20px;">
+      <div class="total-box"><span class="total-label">📦 Total Orders Today</span><span class="total-val monthly" id="totalOrders">0</span></div>
+      <div class="total-box"><span class="total-label">🟡 Pending</span><span class="total-val" id="pendingCount" style="color:#d97706">0</span></div>
+      <div class="total-box"><span class="total-label">🟠 Preparing</span><span class="total-val" id="preparingCount" style="color:#ea580c">0</span></div>
+      <div class="total-box"><span class="total-label">🟢 Ready</span><span class="total-val" id="readyCount" style="color:#059669">0</span></div>
+    </div>
+
+    <section class="card" style="max-width:1100px;margin:16px auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <h2 style="font-size:1.2rem;color:var(--primary)">📱 Online Orders Management</h2>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <label class="sound-toggle"><input type="checkbox" id="soundToggle" checked /> 🔊 Sound Alert</label>
+          <div class="filter-group"><label>Date:</label><input type="date" id="dateFilter" style="padding:8px 12px;font-size:0.9rem;font-weight:600;border:2px solid var(--border);border-radius:8px;" /></div>
+        </div>
+      </div>
+
+      <div class="filter-tabs" id="statusTabs">
+        <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-tab" onclick="setFilter('pending',this)">🟡 Pending</button>
+        <button class="filter-tab" onclick="setFilter('accepted',this)">🔵 Accepted</button>
+        <button class="filter-tab" onclick="setFilter('preparing',this)">🟠 Preparing</button>
+        <button class="filter-tab" onclick="setFilter('ready',this)">🟢 Ready</button>
+        <button class="filter-tab" onclick="setFilter('completed',this)">⚪ Completed</button>
+      </div>
+
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="🔍 Search by Order No, Employee Name, or ID..." oninput="applyFilters()" />
+      </div>
+
+      <div id="ordersList"><div class="no-orders-msg">Loading orders...</div></div>
+    </section>
+  </div>
+
+  <script>
+    let allOrders = [];
+    let currentFilter = 'all';
+    let eventSource = null;
+    let previousOrderCount = 0;
+    let pollingInterval = null;
+
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById('dateFilter').value = `${yyyy}-${mm}-${dd}`;
+
+      document.getElementById('dateFilter').addEventListener('change', loadOrders);
+      await loadOrders();
+      connectSSE();
+      // Polling fallback: refresh orders every 5 seconds in case SSE misses events
+      pollingInterval = setInterval(loadOrders, 5000);
+    })();
+
+    async function loadOrders() {
+      const date = document.getElementById('dateFilter').value;
+      try {
+        const res = await fetch(`/api/orders?date=${date}`);
+        allOrders = await res.json();
+        previousOrderCount = allOrders.length;
+        updateSummaryCards();
+        applyFilters();
+      } catch (e) {
+        console.error('Error loading orders:', e);
+      }
+    }
+
+    function connectSSE() {
+      if (eventSource) eventSource.close();
+      eventSource = new EventSource('/api/orders/stream');
+
+      eventSource.addEventListener('new-order', (e) => {
+        const order = JSON.parse(e.data);
+        if (order.created_at && order.created_at.startsWith(document.getElementById('dateFilter').value)) {
+          const exists = allOrders.find(o => o.id === order.id);
+          if (!exists) {
+            allOrders.unshift(order);
+            updateSummaryCards();
+            applyFilters();
+            showNewOrderNotification(1);
+          }
+        }
+      });
+
+      eventSource.addEventListener('status-update', (e) => {
+        const updated = JSON.parse(e.data);
+        const idx = allOrders.findIndex(o => o.id === updated.id);
+        if (idx !== -1) {
+          allOrders[idx] = updated;
+        } else if (updated.created_at && updated.created_at.startsWith(document.getElementById('dateFilter').value)) {
+          allOrders.unshift(updated);
+        }
+        updateSummaryCards();
+        applyFilters();
+      });
+
+      eventSource.onerror = () => {
+        setTimeout(connectSSE, 3000);
+      };
+    }
+
+    function updateSummaryCards() {
+      document.getElementById('totalOrders').textContent = allOrders.length;
+      document.getElementById('pendingCount').textContent = allOrders.filter(o => o.status === 'pending').length;
+      document.getElementById('preparingCount').textContent = allOrders.filter(o => o.status === 'preparing').length;
+      document.getElementById('readyCount').textContent = allOrders.filter(o => o.status === 'ready').length;
+    }
+
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const term = document.getElementById('searchInput').value.toLowerCase().trim();
+      let filtered = allOrders;
+      if (currentFilter !== 'all') filtered = filtered.filter(o => o.status === currentFilter);
+      if (term) filtered = filtered.filter(o => {
+        const num = (o.order_id || '').toLowerCase();
+        const name = (o.employee_name || '').toLowerCase();
+        const phone = (o.phone_number || '').toString().toLowerCase();
+        return num.includes(term) || name.includes(term) || phone.includes(term);
+      });
+      renderOrders(filtered);
+    }
+
+    function renderOrders(orders) {
+      const c = document.getElementById('ordersList');
+      if (!orders.length) { c.innerHTML = '<div class="no-orders-msg">📭 No orders found.</div>'; return; }
+      let html = '';
+      for (const o of orders) {
+        const sc = `status-${o.status||'pending'}`;
+        const sl = (o.status||'pending').toUpperCase();
+        const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+        const time = o.created_at ? formatTime(o.created_at) : '—';
+        html += `<div class="order-card" id="order-${o.id}">
+          <div class="order-card-header">
+            <span class="order-number">#${o.order_id||'N/A'}</span>
+            <span class="order-status-badge ${sc}">${sl}</span>
+            <span class="order-time">🕐 ${time}</span>
+          </div>
+          <div class="order-card-info">
+            <div class="order-info-item"><span class="order-info-label">Employee Name</span><span class="order-info-value">${o.employee_name||'—'}</span></div>
+            <div class="order-info-item"><span class="order-info-label">Phone Number</span><span class="order-info-value">${o.phone_number||'—'}</span></div>
+            <div class="order-info-item"><span class="order-info-label">Department</span><span class="order-info-value">${o.department||'—'}</span></div>
+          </div>
+          <div class="order-items-list">
+            <h4>📋 Ordered Items</h4>
+            ${items.map(i => `<div class="order-item-row"><span class="order-item-name">${i.name||'—'}</span><span class="order-item-qty">× ${i.quantity||1}</span></div>`).join('')}
+            <div class="order-total"><span style="font-weight:700">Total Amount</span><span class="order-total-amount">₹${(o.total_amount||0).toLocaleString('en-IN')}</span></div>
+          </div>
+          <div class="order-actions">
+            <select onchange="updateStatus('${o.id}',this.value)">
+              <option value="pending" ${o.status==='pending'?'selected':''}>🟡 Pending</option>
+              <option value="accepted" ${o.status==='accepted'?'selected':''}>🔵 Accepted</option>
+              <option value="preparing" ${o.status==='preparing'?'selected':''}>🟠 Preparing</option>
+              <option value="ready" ${o.status==='ready'?'selected':''}>🟢 Ready</option>
+              <option value="completed" ${o.status==='completed'?'selected':''}>⚪ Completed</option>
+              <option value="cancelled" ${o.status==='cancelled'?'selected':''}>🔴 Cancelled</option>
+            </select>
+          </div>
+        </div>`;
+      }
+      c.innerHTML = html;
+    }
+
+    async function updateStatus(id, status) {
+      try {
+        await fetch(`/api/orders/${id}/status`, {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ status })
+        });
+        showToast(`✅ Status → ${status.toUpperCase()}`);
+      } catch (e) { alert('Error updating status'); }
+    }
+
+    function showNewOrderNotification(count) {
+      document.getElementById('notifText').textContent = `🔔 ${count} new order${count>1?'s':''} received!`;
+      document.getElementById('notifBar').classList.add('show');
+      if (document.getElementById('soundToggle').checked) playBeep();
+      setTimeout(() => document.getElementById('notifBar').classList.remove('show'), 10000);
+    }
+
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext||window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 800; osc.type = 'sine'; gain.gain.value = 0.3;
+        osc.start();
+        setTimeout(() => { osc.frequency.value = 1000; }, 150);
+        setTimeout(() => { osc.frequency.value = 800; }, 300);
+        setTimeout(() => { osc.stop(); ctx.close(); }, 450);
+      } catch(e) {}
+    }
+
+    function formatTime(ts) {
+      try { const d = new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(e) { return ts; }
+    }
+
+    function showToast(msg) {
+      let t = document.getElementById('toast');
+      if (!t) { t = document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>

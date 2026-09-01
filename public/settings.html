@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book – Settings</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/complaints" class="nav-btn">📣 Complaints</a>
+      <a href="/settings" class="nav-btn active">⚙️ Settings</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ DATE BANNER ═══════════════ -->
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <!-- ═══════════════ SETTINGS SECTION ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>⚙️ Price Settings</h2>
+    </div>
+
+    <p class="hint-text">Change the price of each item. These prices will apply to all future entries.</p>
+
+    <div class="settings-grid">
+      <div class="setting-item">
+        <div class="setting-icon">☕</div>
+        <div class="setting-info">
+          <span class="setting-name">Tea</span>
+          <span class="setting-current" id="currentTea">Current: ₹0</span>
+        </div>
+        <div class="setting-input">
+          <label for="priceTea">New Price (₹)</label>
+          <input type="number" id="priceTea" min="0" step="1" />
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-icon">🥪</div>
+        <div class="setting-info">
+          <span class="setting-name">Breakfast</span>
+          <span class="setting-current" id="currentBreakfast">Current: ₹0</span>
+        </div>
+        <div class="setting-input">
+          <label for="priceBreakfast">New Price (₹)</label>
+          <input type="number" id="priceBreakfast" min="0" step="1" />
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-icon">🍛</div>
+        <div class="setting-info">
+          <span class="setting-name">Lunch</span>
+          <span class="setting-current" id="currentLunch">Current: ₹0</span>
+        </div>
+        <div class="setting-input">
+          <label for="priceLunch">New Price (₹)</label>
+          <input type="number" id="priceLunch" min="0" step="1" />
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-icon">🍲</div>
+        <div class="setting-info">
+          <span class="setting-name">Dinner</span>
+          <span class="setting-current" id="currentDinner">Current: ₹0</span>
+        </div>
+        <div class="setting-input">
+          <label for="priceDinner">New Price (₹)</label>
+          <input type="number" id="priceDinner" min="0" step="1" />
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-icon">🍪</div>
+        <div class="setting-info">
+          <span class="setting-name">Snacks</span>
+          <span class="setting-current" id="currentSnacks">Current: ₹0</span>
+        </div>
+        <div class="setting-input">
+          <label for="priceSnacks">New Price (₹)</label>
+          <input type="number" id="priceSnacks" min="0" step="1" />
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-actions">
+      <button class="btn btn-secondary" onclick="resetPriceForm()">↩️ Reset</button>
+      <button class="btn btn-save" id="savePriceBtn" onclick="savePrices()">💾 Save Prices</button>
+    </div>
+
+    <div class="toast" id="toast">✅ Saved!</div>
+  </section>
+
+  <!-- ═══════════════ BOOKING TIMING SECTION ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>⏰ Online Order Booking Timing</h2>
+    </div>
+
+    <p class="hint-text">Control when online ordering is open. When booking is closed, employees will see a "Booking Closed" message and cannot place orders.</p>
+
+    <div class="settings-grid" style="grid-template-columns:1fr 1fr;margin-top:16px;">
+      <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+        <label style="font-weight:700;margin-bottom:4px;">Booking Status</label>
+        <select id="bookingOpen" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
+          <option value="1">✅ Open - Accepting Orders</option>
+          <option value="0">🔴 Closed - Stop Booking</option>
+        </select>
+      </div>
+      <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+        <label style="font-weight:700;margin-bottom:4px;">Closed Message</label>
+        <input type="text" id="bookingClosedMsg" placeholder="Booking is currently closed" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+      </div>
+      <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+        <label style="font-weight:700;margin-bottom:4px;">Start Time</label>
+        <input type="time" id="bookingStartTime" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+      </div>
+      <div class="setting-item" style="flex-direction:column;align-items:stretch;">
+        <label style="font-weight:700;margin-bottom:4px;">End Time</label>
+        <input type="time" id="bookingEndTime" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+      </div>
+    </div>
+
+    <div class="setting-actions">
+      <button class="btn btn-save" id="saveBookingBtn" onclick="saveBookingSettings()">💾 Save Booking Settings</button>
+    </div>
+
+    <div style="margin-top:12px;padding:12px;background:#f8fafc;border:2px solid var(--border);border-radius:8px;" id="bookingStatusPreview">
+      <strong>Current Status:</strong> <span id="bookingCurrentStatus">Loading...</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════ PASSWORD SECTION ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>🔐 Password Settings</h2>
+    </div>
+
+    <p class="hint-text">This is the global password used across the app. It protects: editing saved entries, Payment page, All Records page, Pending page, and this Settings page. Changing it here updates everywhere automatically.</p>
+
+    <div class="settings-grid" style="margin-top:16px;">
+      <div class="setting-item">
+        <div class="setting-icon">🔑</div>
+        <div class="setting-info">
+          <span class="setting-name">Current Password</span>
+          <span class="setting-current" id="currentPasswordDisplay">Loading...</span>
+        </div>
+        <div class="setting-input">
+          <label for="newPassword">New Password</label>
+          <input type="text" id="newPassword" placeholder="Enter new password" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-actions">
+      <button class="btn btn-save" id="savePwBtn" onclick="savePassword()">🔑 Update Password</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ONLINE MENU SECTION ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>🍽️ Online Ordering Menu</h2>
+      <button class="btn btn-primary btn-sm" onclick="showAddMenuItem()">➕ Add Item</button>
+    </div>
+    <p class="hint-text">Manage food items shown on the Employee Ordering App. Add, edit, toggle availability, or remove items.</p>
+    <div class="table-wrap" style="margin-top:16px;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Icon</th>
+            <th>Item Name</th>
+            <th>Price (₹)</th>
+            <th>Available</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="menuItemsBody">
+          <tr class="empty-row"><td colspan="6">Loading menu items...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="toast" id="menuToast" style="position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(120px);background:#059669;color:#fff;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.35);transition:transform 0.35s ease;z-index:999;pointer-events:none;white-space:nowrap;">✅ Saved!</div>
+  </section>
+
+  <!-- ═══════════════ ADD/EDIT MENU ITEM MODAL ═══════════════ -->
+  <div class="modal-overlay" id="menuModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2 id="menuModalTitle">➕ Add Menu Item</h2>
+        <button class="modal-close" onclick="closeMenuModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Item Name *</label>
+          <input type="text" id="menuItemName" placeholder="e.g. Chai, Samosa, Thali" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Icon (Emoji)</label>
+          <input type="text" id="menuItemIcon" placeholder="e.g. ☕ 🍛 🍪" value="🍽️" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Price (₹) *</label>
+          <input type="number" id="menuItemPrice" min="0" step="1" placeholder="0" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group">
+          <label><input type="checkbox" id="menuItemAvailable" checked /> Available for ordering</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeMenuModal()">Cancel</button>
+        <button class="btn btn-primary" id="menuSaveBtn" onclick="saveMenuItem()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
+  <div class="modal-overlay" id="passwordModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2>🔐 Password Required</h2>
+        <button class="modal-close" onclick="closePasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Enter password to access Settings:</p>
+        <div class="field-group" style="margin-top:12px;">
+          <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1.1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <p class="password-error" id="passwordError" style="color:var(--danger);display:none;margin-top:8px;font-weight:700;">❌ Incorrect password</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="verifyPassword()">🔓 Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let authenticated = false;
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      const dRes = await fetch('/api/today');
+      const d = await dRes.json();
+      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
+
+      await loadPrices();
+      await loadBookingSettings();
+      showPasswordModal();
+    })();
+
+    // ─── Password ───────────────────────────────────────────
+    function showPasswordModal() {
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      document.getElementById('passwordModal').style.display = 'flex';
+      document.getElementById('passwordInput').focus();
+    }
+
+    function closePasswordModal() {
+      if (!authenticated) {
+        window.location.href = '/';
+      }
+      document.getElementById('passwordModal').style.display = 'none';
+    }
+
+    async function verifyPassword() {
+      const pw = document.getElementById('passwordInput').value;
+      try {
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          authenticated = true;
+          closePasswordModal();
+        } else {
+          document.getElementById('passwordError').style.display = 'block';
+          document.getElementById('passwordInput').value = '';
+          document.getElementById('passwordInput').focus();
+        }
+      } catch (e) {
+        alert('Error verifying password');
+      }
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyPassword();
+    });
+
+    // ─── Load Prices ────────────────────────────────────────
+    async function loadPrices() {
+      const res = await fetch('/api/prices');
+      const prices = await res.json();
+
+      document.getElementById('priceTea').value = prices.tea;
+      document.getElementById('priceBreakfast').value = prices.breakfast;
+      document.getElementById('priceLunch').value = prices.lunch;
+      document.getElementById('priceDinner').value = prices.dinner;
+      document.getElementById('priceSnacks').value = prices.snacks;
+
+      document.getElementById('currentTea').textContent = `Current: ₹${prices.tea}`;
+      document.getElementById('currentBreakfast').textContent = `Current: ₹${prices.breakfast}`;
+      document.getElementById('currentLunch').textContent = `Current: ₹${prices.lunch}`;
+      document.getElementById('currentDinner').textContent = `Current: ₹${prices.dinner}`;
+      document.getElementById('currentSnacks').textContent = `Current: ₹${prices.snacks}`;
+    }
+
+    function resetPriceForm() { loadPrices(); }
+
+    async function savePrices() {
+      const btn = document.getElementById('savePriceBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const prices = {
+        tea: parseFloat(document.getElementById('priceTea').value) || 0,
+        breakfast: parseFloat(document.getElementById('priceBreakfast').value) || 0,
+        lunch: parseFloat(document.getElementById('priceLunch').value) || 0,
+        dinner: parseFloat(document.getElementById('priceDinner').value) || 0,
+        snacks: parseFloat(document.getElementById('priceSnacks').value) || 0,
+      };
+
+      try {
+        const res = await fetch('/api/prices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prices }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ Prices Updated Successfully!');
+          await loadPrices();
+        }
+      } catch (err) {
+        alert('Error saving prices.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save Prices';
+      }
+    }
+
+    // ─── Booking Settings ───────────────────────────────────
+    async function loadBookingSettings() {
+      try {
+        const res = await fetch('/api/booking-settings');
+        const data = await res.json();
+        document.getElementById('bookingOpen').value = data.booking_open ? '1' : '0';
+        document.getElementById('bookingStartTime').value = data.start_time || '08:00';
+        document.getElementById('bookingEndTime').value = data.end_time || '20:00';
+        document.getElementById('bookingClosedMsg').value = data.closed_message || '';
+        updateBookingStatusPreview(data);
+      } catch (e) {
+        console.error('Error loading booking settings:', e);
+      }
+    }
+
+    function updateBookingStatusPreview(data) {
+      const el = document.getElementById('bookingCurrentStatus');
+      if (data.booking_open) {
+        el.innerHTML = `<span style="color:#059669;font-weight:700;">✅ OPEN</span> — From ${data.start_time} to ${data.end_time}`;
+      } else {
+        el.innerHTML = `<span style="color:#dc2626;font-weight:700;">🔴 CLOSED</span> — ${data.closed_message || 'Booking is closed'}`;
+      }
+    }
+
+    async function saveBookingSettings() {
+      const btn = document.getElementById('saveBookingBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const settings = {
+        booking_open: document.getElementById('bookingOpen').value === '1',
+        start_time: document.getElementById('bookingStartTime').value || '08:00',
+        end_time: document.getElementById('bookingEndTime').value || '20:00',
+        closed_message: document.getElementById('bookingClosedMsg').value || 'Booking is currently closed.'
+      };
+
+      try {
+        const res = await fetch('/api/booking-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('⏰ Booking Settings Updated!');
+          updateBookingStatusPreview(data.settings);
+        }
+      } catch (err) {
+        alert('Error saving booking settings.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Save Booking Settings';
+      }
+    }
+
+    // ─── Password Management ────────────────────────────────
+    async function loadPassword() {
+      try {
+        const res = await fetch('/api/password');
+        const data = await res.json();
+        // Show masked password
+        const pw = data.password;
+        const masked = pw.length > 0 ? '•'.repeat(Math.min(pw.length, 8)) + ` (length: ${pw.length})` : 'Not set';
+        document.getElementById('currentPasswordDisplay').textContent = masked;
+      } catch (e) {
+        document.getElementById('currentPasswordDisplay').textContent = 'Error loading';
+      }
+    }
+
+    async function savePassword() {
+      const newPw = document.getElementById('newPassword').value;
+      if (!newPw && newPw !== '0') {
+        alert('Please enter a password');
+        return;
+      }
+
+      const btn = document.getElementById('savePwBtn');
+      btn.disabled = true;
+      btn.textContent = 'Updating…';
+
+      try {
+        const res = await fetch('/api/password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: newPw }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('🔑 Password Updated! All pages now use the new password.');
+          document.getElementById('newPassword').value = '';
+          await loadPassword();
+        }
+      } catch (err) {
+        alert('Error updating password');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Update Password';
+      }
+    }
+
+    loadPassword();
+
+    // ═══════════════════════════════════════════════════════════
+    //  ONLINE MENU MANAGEMENT
+    // ═══════════════════════════════════════════════════════════
+    let editingMenuItemId = null;
+
+    async function loadMenuItems() {
+      try {
+        const res = await fetch('/api/menu');
+        const items = await res.json();
+        const tbody = document.getElementById('menuItemsBody');
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No menu items yet. Click "➕ Add Item" to create one.</td></tr>';
+          return;
+        }
+        let html = '';
+        items.forEach((item, i) => {
+          const availBadge = item.available ? '<span style="color:var(--accent);font-weight:700;">✅ Yes</span>' : '<span style="color:var(--danger);font-weight:700;">❌ No</span>';
+          html += `<tr>
+            <td>${i + 1}</td>
+            <td style="font-size:1.5rem;text-align:center;">${item.icon}</td>
+            <td style="font-weight:700;">${item.name}</td>
+            <td style="font-weight:700;">₹${item.price}</td>
+            <td>${availBadge}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" onclick="editMenuItem(${item.id})" style="margin-right:6px;">✏️</button>
+              <button class="btn btn-secondary btn-sm" onclick="toggleAvailability(${item.id}, ${item.available})" style="margin-right:6px;">${item.available ? '🙈 Hide' : '👁️ Show'}</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteMenuItem(${item.id}, '${item.name}')">🗑️</button>
+            </td>
+          </tr>`;
+        });
+        tbody.innerHTML = html;
+      } catch (e) {
+        console.error('Error loading menu:', e);
+      }
+    }
+
+    function showAddMenuItem() {
+      editingMenuItemId = null;
+      document.getElementById('menuModalTitle').textContent = '➕ Add Menu Item';
+      document.getElementById('menuItemName').value = '';
+      document.getElementById('menuItemIcon').value = '🍽️';
+      document.getElementById('menuItemPrice').value = '';
+      document.getElementById('menuItemAvailable').checked = true;
+      document.getElementById('menuSaveBtn').textContent = '💾 Save';
+      document.getElementById('menuModal').style.display = 'flex';
+      document.getElementById('menuItemName').focus();
+    }
+
+    async function editMenuItem(id) {
+      try {
+        const res = await fetch('/api/menu');
+        const items = await res.json();
+        const item = items.find(i => i.id === id);
+        if (!item) return alert('Item not found');
+        editingMenuItemId = id;
+        document.getElementById('menuModalTitle').textContent = '✏️ Edit Menu Item';
+        document.getElementById('menuItemName').value = item.name;
+        document.getElementById('menuItemIcon').value = item.icon;
+        document.getElementById('menuItemPrice').value = item.price;
+        document.getElementById('menuItemAvailable').checked = item.available === 1;
+        document.getElementById('menuSaveBtn').textContent = '💾 Update';
+        document.getElementById('menuModal').style.display = 'flex';
+        document.getElementById('menuItemName').focus();
+      } catch (e) {
+        alert('Error loading item');
+      }
+    }
+
+    function closeMenuModal() {
+      document.getElementById('menuModal').style.display = 'none';
+      editingMenuItemId = null;
+    }
+
+    async function saveMenuItem() {
+      const name = document.getElementById('menuItemName').value.trim();
+      const icon = document.getElementById('menuItemIcon').value.trim() || '🍽️';
+      const price = parseFloat(document.getElementById('menuItemPrice').value) || 0;
+      const available = document.getElementById('menuItemAvailable').checked;
+
+      if (!name) {
+        alert('Item name is required!');
+        return;
+      }
+
+      const btn = document.getElementById('menuSaveBtn');
+      btn.disabled = true;
+
+      try {
+        let res;
+        if (editingMenuItemId) {
+          res = await fetch(`/api/menu/${editingMenuItemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, price, available })
+          });
+        } else {
+          res = await fetch('/api/menu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, price, available })
+          });
+        }
+        const data = await res.json();
+        if (data.success) {
+          closeMenuModal();
+          showMenuToast(editingMenuItemId ? '✅ Item updated!' : '✅ Item added!');
+          await loadMenuItems();
+        } else {
+          alert(data.error || 'Error saving item');
+        }
+      } catch (e) {
+        alert('Error saving item');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function toggleAvailability(id, currentAvail) {
+      try {
+        await fetch(`/api/menu/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ available: !currentAvail })
+        });
+        showMenuToast(currentAvail ? '🙈 Item hidden from menu' : '👁️ Item now visible on menu');
+        await loadMenuItems();
+      } catch (e) {
+        alert('Error toggling availability');
+      }
+    }
+
+    async function deleteMenuItem(id, name) {
+      if (!confirm(`Delete "${name}" from menu?`)) return;
+      try {
+        const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showMenuToast('🗑️ Item deleted!');
+          await loadMenuItems();
+        }
+      } catch (e) {
+        alert('Error deleting item');
+      }
+    }
+
+    function showMenuToast(msg) {
+      const toast = document.getElementById('menuToast');
+      toast.textContent = msg;
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+      setTimeout(() => { toast.style.transform = 'translateX(-50%) translateY(120px)'; }, 2500);
+    }
+
+    // Load menu items on init
+    loadMenuItems();
+    loadBookingSettings();
+
+    // ─── Toast ──────────────────────────────────────────────
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg || '✅ Saved!';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  </script>
+</body>
+</html>
