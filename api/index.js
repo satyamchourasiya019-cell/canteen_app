@@ -3,6 +3,7 @@
 //  No native modules — pure JavaScript, works on Vercel serverless
 // ═══════════════════════════════════════════════════════════════════
 const express = require('express');
+const path = require('path');
 const { initializeApp } = require('firebase/app');
 const {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
@@ -14,7 +15,7 @@ const PORT = process.env.PORT || 3456;
 
 // Middleware
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  FIREBASE CONFIG
@@ -900,16 +901,17 @@ app.put('/api/serial-register/:serialNo', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 //  SERVE PAGES
 // ═══════════════════════════════════════════════════════════════════
-app.get('/', (_req, res) => res.sendFile('public/entry.html'));
-app.get('/payment', (_req, res) => res.sendFile('public/payment.html'));
-app.get('/records', (_req, res) => res.sendFile('public/records.html'));
-app.get('/records/:empNo', (_req, res) => res.sendFile('public/emp-records.html'));
-app.get('/settings', (_req, res) => res.sendFile('public/settings.html'));
-app.get('/pending', (_req, res) => res.sendFile('public/pending.html'));
-app.get('/online-orders', (_req, res) => res.sendFile('public/online-orders.html'));
-app.get('/user-ordering', (_req, res) => res.sendFile('public/user-ordering.html'));
-app.get('/serial-register', (_req, res) => res.sendFile('public/serial-register.html'));
-app.get('/complaints', (_req, res) => res.sendFile('public/complaints.html'));
+const PUBLIC = path.join(__dirname, '..', 'public');
+app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC, 'entry.html')));
+app.get('/payment', (_req, res) => res.sendFile(path.join(PUBLIC, 'payment.html')));
+app.get('/records', (_req, res) => res.sendFile(path.join(PUBLIC, 'records.html')));
+app.get('/records/:empNo', (_req, res) => res.sendFile(path.join(PUBLIC, 'emp-records.html')));
+app.get('/settings', (_req, res) => res.sendFile(path.join(PUBLIC, 'settings.html')));
+app.get('/pending', (_req, res) => res.sendFile(path.join(PUBLIC, 'pending.html')));
+app.get('/online-orders', (_req, res) => res.sendFile(path.join(PUBLIC, 'online-orders.html')));
+app.get('/user-ordering', (_req, res) => res.sendFile(path.join(PUBLIC, 'user-ordering.html')));
+app.get('/serial-register', (_req, res) => res.sendFile(path.join(PUBLIC, 'serial-register.html')));
+app.get('/complaints', (_req, res) => res.sendFile(path.join(PUBLIC, 'complaints.html')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  VERCEL HANDLER + LOCAL DEV
