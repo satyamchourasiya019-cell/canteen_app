@@ -488,9 +488,11 @@
         });
         const data = await res.json();
         if (data.valid) {
+          // Save action BEFORE closePasswordModal clears pendingAction
+          const action = pendingAction;
           closePasswordModal();
-          if (pendingAction && pendingAction.action === 'edit') {
-            openEditModal(pendingAction.serialNo);
+          if (action && action.action === 'edit') {
+            openEditModal(action.serialNo);
           }
         } else {
           document.getElementById('srPasswordError').style.display = 'block';
@@ -634,6 +636,7 @@
       setTimeout(() => t.classList.remove('show'), 2500);
     }
   </script>
+  <script src="/date-banner.js"></script>
   <script src="/notifications.js"></script>
 </body>
 </html>

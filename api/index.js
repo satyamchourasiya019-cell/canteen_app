@@ -636,35 +636,50 @@ app.get('/api/menu/available', async (_req, res) => {
 });
 
 app.post('/api/menu', async (req, res) => {
-  const { name, icon, price, available } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name required' });
-  const existing = await getAll(C.menuItems, [], 'sort_order', false);
-  const maxOrder = existing.length > 0 ? Math.max(...existing.map(i => i.sort_order || 0)) : 0;
-  const data = { name: name.trim(), icon: icon || '🍽️', price: parseFloat(price) || 0, available: available !== undefined ? (available ? 1 : 0) : 1, sort_order: maxOrder + 1 };
-  const newId = await addDocData(C.menuItems, data);
-  res.json({ success: true, item: { id: newId, ...data } });
+  try {
+    const { name, icon, price, available } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    const existing = await getAll(C.menuItems);
+    const maxOrder = existing.length > 0 ? Math.max(...existing.map(i => i.sort_order || 0)) : 0;
+    const data = { name: name.trim(), icon: icon || '🍽️', price: parseFloat(price) || 0, available: available !== undefined ? (available ? 1 : 0) : 1, sort_order: maxOrder + 1 };
+    const newId = await addDocData(C.menuItems, data);
+    res.json({ success: true, item: { id: newId, ...data } });
+  } catch (err) {
+    console.error('Menu add error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.put('/api/menu/:id', async (req, res) => {
-  const { id } = req.params;
-  const existing = await getDocById(C.menuItems, id);
-  if (!existing) return res.status(404).json({ error: 'Not found' });
-  const updates = {
-    name: req.body.name ? req.body.name.trim() : existing.name,
-    icon: req.body.icon || existing.icon,
-    price: req.body.price !== undefined ? parseFloat(req.body.price) : existing.price,
-    available: req.body.available !== undefined ? (req.body.available ? 1 : 0) : existing.available,
-    sort_order: req.body.sort_order !== undefined ? parseInt(req.body.sort_order) : existing.sort_order,
-  };
-  await updateDocData(C.menuItems, id, updates);
-  res.json({ success: true, item: { id, ...updates } });
+  try {
+    const { id } = req.params;
+    const existing = await getDocById(C.menuItems, id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const updates = {
+      name: req.body.name ? req.body.name.trim() : existing.name,
+      icon: req.body.icon || existing.icon,
+      price: req.body.price !== undefined ? parseFloat(req.body.price) : existing.price,
+      available: req.body.available !== undefined ? (req.body.available ? 1 : 0) : existing.available,
+      sort_order: req.body.sort_order !== undefined ? parseInt(req.body.sort_order) : existing.sort_order,
+    };
+    await updateDocData(C.menuItems, id, updates);
+    res.json({ success: true, item: { id, ...updates } });
+  } catch (err) {
+    console.error('Menu update error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/api/menu/:id', async (req, res) => {
-  const existing = await getDocById(C.menuItems, req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Not found' });
-  await deleteDocData(C.menuItems, req.params.id);
-  res.json({ success: true });
+  try {
+    const existing = await getDocById(C.menuItems, req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    await deleteDocData(C.menuItems, req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Menu delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Online Orders ────────────────────────────────────────────────
