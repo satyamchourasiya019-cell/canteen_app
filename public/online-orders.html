@@ -122,7 +122,6 @@
     (async function init() {
       const dRes = await fetch('/api/today');
       const d = await dRes.json();
-      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
 
       const today = new Date();
       const yyyy = today.getFullYear();

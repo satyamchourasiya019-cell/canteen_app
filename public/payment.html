@@ -188,7 +188,6 @@
     (async function init() {
       const dRes = await fetch('/api/today');
       const d = await dRes.json();
-      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
       currentYear = d.year;
       currentMonth = d.month;
 

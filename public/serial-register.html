@@ -253,7 +253,6 @@
     (async function init() {
       const dRes = await fetch('/api/today');
       const d = await dRes.json();
-      document.getElementById('dateBanner').textContent = `📅 Date: ${d.date}`;
       document.getElementById('assignJoinDate').value = new Date().toISOString().substring(0, 10);
       document.getElementById('leaveDate').value = new Date().toISOString().substring(0, 10);
       await loadStats();
