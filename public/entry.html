@@ -371,7 +371,7 @@
         if (hasEntry && isToday) { bg = '#d1fae5'; border = '2px solid #059669'; color = '#065f46'; }
 
         const totalStr = hasEntry ? '<div style="font-size:0.6rem;font-weight:700;">₹' + entryDates[dateStr] + '</div>' : '';
-        html += '<div onclick="loadCalDate('' + dateStr + '')" style="text-align:center;padding:6px 2px;border-radius:8px;background:' + bg + ';border:' + border + ';color:' + color + ';cursor:' + cursor + ';font-weight:600;font-size:0.85rem;transition:all 0.15s;">' + day + totalStr + '</div>';
+        html += '<div onclick="loadCalDate(\'' + dateStr + '\')" style="text-align:center;padding:6px 2px;border-radius:8px;background:' + bg + ';border:' + border + ';color:' + color + ';cursor:' + cursor + ';font-weight:600;font-size:0.85rem;transition:all 0.15s;">' + day + totalStr + '</div>';
       }
 
       document.getElementById('calGrid').innerHTML = html;
@@ -480,6 +480,8 @@
         isEditMode = true;
       }
 
+      document.getElementById('calendarSection').style.display = 'block';
+      loadCalendar(empNo);
       document.getElementById('entrySection').style.display = 'block';
       document.getElementById('entrySection').scrollIntoView({ behavior: 'smooth' });
       calcTotal();
