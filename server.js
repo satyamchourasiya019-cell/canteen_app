@@ -1534,6 +1534,41 @@ app.put('/api/serial-register/:serialNo', (req, res) => {
   res.json({ success: true, data: updated });
 });
 
+// ═══════════════════════════════════════════════════════════════════
+//  SERVE PAGES
+// ═══════════════════════════════════════════════════════════════════
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'entry.html'));
+});
+
+app.get('/payment', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'payment.html'));
+});
+
+app.get('/records', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'records.html'));
+});
+
+app.get('/records/:empNo', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'emp-records.html'));
+});
+
+app.get('/settings', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+app.get('/pending', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pending.html'));
+});
+
+app.get('/online-orders', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'online-orders.html'));
+});
+
+app.get('/user-ordering', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'user-ordering.html'));
+});
+
 // ─── Serve serial register page ─────────────────────────────
 app.get('/serial-register', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'serial-register.html'));
