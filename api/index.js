@@ -500,7 +500,7 @@ app.get('/api/records/:empNo/:year', async (req, res) => {
   res.json({ employee_number: empNo, year, monthly_data: monthlyData, yearly_total: yearlyTotal, h1_total: h1, h2_total: h2 });
 });
 
-// ─── Pending (all employees) ──────────────────────────────────────
+// ─── Pending (all employees) - OPTIMIZED: fetch all data first, calc in JS ──
 app.get('/api/payments/pending/all/:year', async (req, res) => {
   try {
     const year = parseInt(req.params.year, 10);
@@ -509,28 +509,29 @@ app.get('/api/payments/pending/all/:year', async (req, res) => {
     const currentMonth = now.getMonth() + 1;
     const maxMonth = (year === now.getFullYear()) ? currentMonth : 12;
 
-    const allEmpEntries = await getAll(C.entries, [{ field: 'entry_year', op: '==', value: year }]);
-    const empNos = [...new Set(allEmpEntries.map(e => e.employee_number))].sort((a, b) => a - b);
+    // Fetch ALL data in just 3 queries (instead of hundreds)
+    const [allEntries, allPayments, allEmployees] = await Promise.all([
+      getAll(C.entries, [{ field: 'entry_year', op: '==', value: year }]),
+      getAll(C.payments, [{ field: 'year', op: '==', value: year }]),
+      getAll(C.employees),
+    ]);
+
+    const empNames = {};
+    for (const e of allEmployees) empNames[e.employee_number] = e.name || '';
+    const empNos = [...new Set(allEntries.map(e => e.employee_number))].sort((a, b) => a - b);
     const results = [];
 
     for (const empNo of empNos) {
-      let totalBill = 0, totalPaid = 0;
+      let totalBill = 0;
       for (let m = 1; m <= maxMonth; m++) {
-        if (m > 1) await processCarryForward(empNo, m - 1, year, m, year);
-        else if (year > 2020) await processCarryForward(empNo, 12, year - 1, 1, year);
-        const bill = await calcMonthBill(empNo, m, year);
-        totalBill += bill.total_bill;
-        const payData = await getAll(C.payments, [
-          { field: 'employee_number', op: '==', value: empNo },
-          { field: 'month', op: '==', value: m },
-          { field: 'year', op: '==', value: year },
-        ]);
-        totalPaid += payData.reduce((s, p) => s + (p.amount_paid || 0), 0);
+        const empEntries = allEntries.filter(e => e.employee_number === empNo && e.entry_month === m);
+        totalBill += empEntries.reduce((s, e) => s + (e.daily_total || 0), 0);
       }
+      const empPayments = allPayments.filter(p => p.employee_number === empNo);
+      const totalPaid = empPayments.reduce((s, p) => s + (p.amount_paid || 0), 0);
       const pending = Math.max(0, totalBill - totalPaid);
       if (pending > 0 || totalBill > 0) {
-        const empRow = await getDocById(C.employees, empNo);
-        results.push({ employee_number: empNo, employee_name: empRow ? empRow.name : '', total_bill: totalBill, total_paid: totalPaid, total_pending: pending });
+        results.push({ employee_number: empNo, employee_name: empNames[empNo] || '', total_bill: totalBill, total_paid: totalPaid, total_pending: pending });
       }
     }
     const grandTotalPending = results.reduce((s, r) => s + r.total_pending, 0);
