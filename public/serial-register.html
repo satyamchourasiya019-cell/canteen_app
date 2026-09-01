@@ -345,8 +345,13 @@
       return (str||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
-    // ─── Assign Modal ───────────────────────────────────
+    // ─── Assign / Edit Modal ─────────────────────────────
+    let isEditMode = false;
+    let editSerialNo = null;
+
     function openAssignModal(serialNo, existingName) {
+      isEditMode = false;
+      editSerialNo = null;
       document.getElementById('assignSerialNo').value = serialNo;
       document.getElementById('assignEmpName').value = '';
       document.getElementById('assignEmpPhone').value = '';
@@ -370,6 +375,30 @@
 
       if (!empName) { showToast('⚠️ Enter employee name'); return; }
 
+      // EDIT MODE: use PUT to update existing record
+      if (isEditMode && editSerialNo) {
+        try {
+          const res = await fetch(`/api/serial-register/${editSerialNo}`, {
+            method: 'PUT',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ employee_name: empName, phone_number: empPhone, department: dept })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✅ Record updated!');
+            closeAssignModal();
+            await loadSerialData(srPage);
+            await loadStats();
+          } else {
+            showToast('❌ ' + (data.error || 'Error'));
+          }
+        } catch(e) {
+          showToast('❌ Network error');
+        }
+        return;
+      }
+
+      // ASSIGN MODE: POST to assign new employee
       try {
         const res = await fetch('/api/serial-register', {
           method: 'POST',
@@ -379,7 +408,6 @@
         const data = await res.json();
 
         if (data.error === 'occupied') {
-          // Show confirmation to start new record
           closeAssignModal();
           pendingAction = { serialNo, empName, empPhone, dept, joinDate };
           document.getElementById('confirmNewMsg').innerHTML = `⚠️ <strong>Serial No. ${serialNo}</strong> was previously assigned to <strong>${data.previousName}</strong>.<br><br>Do you want to close the previous record and start a <strong>NEW employee record</strong>?`;
@@ -475,6 +503,8 @@
       try {
         const res = await fetch(`/api/serial-register/${serialNo}`);
         const entry = await res.json();
+        isEditMode = true;
+        editSerialNo = serialNo;
         document.getElementById('assignSerialNo').value = serialNo;
         document.getElementById('assignEmpName').value = entry.employee_name || '';
         document.getElementById('assignEmpPhone').value = entry.phone_number || '';
@@ -511,7 +541,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast('✅ Employee marked as left');
+          showToast('✅ Employee removed! Slot is now Vacant.');
           closeLeaveModal();
           await loadSerialData(srPage);
           await loadStats();

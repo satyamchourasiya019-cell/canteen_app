@@ -855,8 +855,9 @@ app.post('/api/serial-register/:serialNo/leave', async (req, res) => {
     department: existing.department || '', joining_date: existing.joining_date || '', leaving_date: ld,
     status: 'Left Company', closed_at: nowStr(),
   });
-  await setDocData(C.serialRegister, String(sn), { ...existing, status: 'Left Company', leaving_date: ld, current_employee: '' });
-  res.json({ success: true, data: { ...existing, status: 'Left Company', leaving_date: ld, current_employee: '' } });
+  // Save to history, then reset to Vacant
+  await setDocData(C.serialRegister, String(sn), { serial_no: sn, employee_name: '', phone_number: '', department: '', status: 'Vacant', joining_date: '', leaving_date: '', current_employee: '' });
+  res.json({ success: true, data: { serial_no: sn, status: 'Vacant' } });
 });
 
 app.post('/api/serial-register/:serialNo/new-record', async (req, res) => {
