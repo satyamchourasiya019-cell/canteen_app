@@ -93,6 +93,25 @@
     .install-banner button{background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.4);color:#fff;padding:6px 16px;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer}
     @media(max-width:480px){.app-header{padding:16px 14px}.app-header h1{font-size:1.1rem}.steps-bar{padding:10px 12px;gap:4px}.step{padding:5px 8px;font-size:0.7rem}.app-section{padding:12px}.menu-grid{gap:8px}.menu-card{padding:12px 8px}.qty-btn{width:32px;height:32px;font-size:1rem}.bottom-bar{padding:10px 14px}.bottom-bar .btn{padding:12px;font-size:0.9rem}}
     @media(min-width:640px){.menu-grid{grid-template-columns:repeat(3,1fr)}}
+  
+    .booking-timer {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: #fff; text-align: center; padding: 16px 20px;
+      border-radius: 12px; margin: 0 16px 16px;
+      box-shadow: 0 4px 15px rgba(5,150,105,0.3);
+    }
+    .booking-timer .timer-label { font-size: 0.8rem; font-weight: 600; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
+    .booking-timer .timer-value {
+      font-size: 2.5rem; font-weight: 900; font-variant-numeric: tabular-nums;
+      letter-spacing: 3px; margin: 4px 0;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .booking-timer .timer-sub { font-size: 0.8rem; opacity: 0.8; }
+    .booking-closed {
+      background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+      color: #fff; text-align: center; padding: 20px; border-radius: 12px;
+      margin: 0 16px 16px; font-weight: 700; font-size: 1.1rem;
+    }
   </style>
 </head>
 <body>
@@ -469,7 +488,7 @@
       }
     }
 
-    initMenu(); updateSteps(); updateBottomBar(); checkBookingOpen();
+    initMenu(); updateSteps(); updateBottomBar(); checkBookingOpen(); setInterval(checkBookingOpen, 30000);
 
     // Register service worker for PWA
     if ('serviceWorker' in navigator) {

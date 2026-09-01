@@ -795,10 +795,11 @@ app.get('/api/booking-settings', async (_req, res) => {
 });
 
 app.post('/api/booking-settings', async (req, res) => {
-  const { booking_open, start_time, end_time, closed_message } = req.body;
+  const { booking_open, start_time, end_time, closed_message, timer_end } = req.body;
   await setDocData(C.bookingSettings, '1', {
     booking_open: booking_open ? 1 : 0, start_time: start_time || '08:00',
-    end_time: end_time || '20:00', closed_message: closed_message || '', updated_at: nowStr(),
+    end_time: end_time || '20:00', closed_message: closed_message || '',
+    timer_end: timer_end || null, updated_at: nowStr(),
   });
   const row = await getDocById(C.bookingSettings, '1');
   res.json({ success: true, settings: row });
@@ -807,6 +808,15 @@ app.post('/api/booking-settings', async (req, res) => {
 app.get('/api/booking-open', async (_req, res) => {
   const row = await getDocById(C.bookingSettings, '1');
   if (!row || !row.booking_open) return res.json({ open: false, message: row ? row.closed_message : 'Closed' });
+  // Check timer
+  if (row.timer_end) {
+    const now2 = Date.now();
+    if (now2 > row.timer_end) {
+      await setDocData(C.bookingSettings, '1', { ...row, booking_open: 0, timer_end: null, closed_message: 'Booking time is up!' });
+      return res.json({ open: false, message: 'Booking time is up!', timer_end: 0 });
+    }
+    return res.json({ open: true, timer_end: row.timer_end, remaining: row.timer_end - now2 });
+  }
   const now = new Date();
   const cur = now.getHours() * 60 + now.getMinutes();
   const [sh, sm] = (row.start_time || '08:00').split(':').map(Number);
