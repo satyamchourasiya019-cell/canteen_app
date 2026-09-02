@@ -454,7 +454,7 @@
         const res = await fetch('/api/booking-open');
         const data = await res.json();
         if (!data.open) {
-          document.getElementById('menuSection').innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:5rem;margin-bottom:16px;">🔒</div><h2 style="color:var(--danger);font-size:1.5rem;margin-bottom:12px;">Booking is Closed</h2><p style="color:var(--text-light);font-size:1rem;max-width:400px;margin:0 auto;line-height:1.6;">' + (data.message || 'Online ordering is currently not available.') + '</p><button class="btn-new-order" onclick="checkBookingOpen()" style="margin-top:20px;">🔄 Refresh</button></div>';
+          document.getElementById('menuSection').innerHTML = '<div style="text-align:center;padding:40px 20px;"><img src="/shrug.jpeg" alt="shrug" style="width:180px;height:auto;border-radius:16px;margin-bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,0.15);" /><h2 style="color:var(--danger);font-size:1.5rem;margin-bottom:8px;">Booking is Closed</h2><p style="color:var(--text-light);font-size:1rem;max-width:400px;margin:0 auto;line-height:1.6;">' + (data.message || 'Online ordering is currently not available. Try again later!') + '</p><button class="btn-new-order" onclick="checkBookingOpen()" style="margin-top:20px;">🔄 Refresh</button></div>';
           document.getElementById('cartPreview').style.display = 'none';
           document.getElementById('bottomBar').style.display = 'none';
         }

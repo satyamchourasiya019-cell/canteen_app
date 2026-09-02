@@ -69,10 +69,14 @@
 
   // ─── Play notification sound ───────────────────────────────────
   function playNotifSound() {
+    // Vibrate phone if supported
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Happy notification ding
-      const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+      // Resume context if suspended (required for mobile browsers)
+      if (ctx.state === 'suspended') ctx.resume();
+      // Loud happy notification ding
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
       notes.forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -80,10 +84,10 @@
         gain.connect(ctx.destination);
         osc.frequency.value = freq;
         osc.type = 'sine';
-        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
-        osc.start(ctx.currentTime + i * 0.15);
-        osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.12 + 0.35);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.35);
       });
     } catch (e) {}
   }
@@ -105,6 +109,8 @@
         const order = JSON.parse(e.data);
         playNotifSound();
         showNotification(order);
+        // Also send browser notification for mobile
+        window._sendBrowserNotif('🔔 New Order: ' + order.order_id, (order.employee_name || 'Someone') + ' placed an order — ₹' + (order.total_amount || 0));
       } catch (err) {}
     });
     
@@ -127,7 +133,7 @@
     };
   }
 
-  // ─── Also poll for new orders every 30s as backup ──────────────
+  // ─── Also poll for new orders every 15s as backup ──────────────
   let lastPollCount = 0;
   async function pollOrders() {
     try {
@@ -151,14 +157,14 @@
   // ─── Init ──────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function() {
     connectSSE();
-    setInterval(pollOrders, 30000);
+    setInterval(pollOrders, 15000);
     pollOrders();
   });
 
   // If DOM already loaded
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     connectSSE();
-    setInterval(pollOrders, 30000);
+    setInterval(pollOrders, 15000);
   }
 
   // ─── Request notification permission (for browser notifications) ──
