@@ -215,6 +215,60 @@
     <div class="toast" id="menuToast" style="position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(120px);background:#059669;color:#fff;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.35);transition:transform 0.35s ease;z-index:999;pointer-events:none;white-space:nowrap;">✅ Saved!</div>
   </section>
 
+  <!-- ═══════════════ ENTRY PAGE CUSTOM ITEMS ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>👨‍💼 Employee Entry Page – Custom Items</h2>
+      <button class="btn btn-primary btn-sm" onclick="showAddEntryItem()">➕ Add Item</button>
+    </div>
+    <p class="hint-text">Add extra food items to the Employee Entry page. These items will appear alongside Tea, Breakfast, Lunch etc. on the entry form.</p>
+    <div class="table-wrap" style="margin-top:16px;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Icon</th>
+            <th>Item Name</th>
+            <th>Price (₹)</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="entryMenuBody">
+          <tr class="empty-row"><td colspan="5">Loading custom items...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="toast" id="entryMenuToast" style="position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(120px);background:#6366f1;color:#fff;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;box-shadow:0 4px 20px rgba(99,102,241,0.35);transition:transform 0.35s ease;z-index:999;pointer-events:none;white-space:nowrap;">✅ Saved!</div>
+  </section>
+
+  <!-- ═══════════════ ADD/EDIT ENTRY ITEM MODAL ═══════════════ -->
+  <div class="modal-overlay" id="entryItemModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2 id="entryItemModalTitle">➕ Add Entry Item</h2>
+        <button class="modal-close" onclick="closeEntryItemModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Item Name *</label>
+          <input type="text" id="entryItemName" placeholder="e.g. Milk, Juice, Salad" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label>Icon (Emoji)</label>
+          <input type="text" id="entryItemIcon" placeholder="e.g. 🥛 🧃 🥗" value="🍽️" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group">
+          <label>Price (₹) *</label>
+          <input type="number" id="entryItemPrice" min="0" step="1" placeholder="0" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEntryItemModal()">Cancel</button>
+        <button class="btn btn-primary" id="entryItemSaveBtn" onclick="saveEntryItem()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ ADD/EDIT MENU ITEM MODAL ═══════════════ -->
   <div class="modal-overlay" id="menuModal" style="display:none;">
     <div class="modal-content card modal-sm">
@@ -631,8 +685,139 @@
       setTimeout(() => { toast.style.transform = 'translateX(-50%) translateY(120px)'; }, 2500);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    //  ENTRY PAGE CUSTOM ITEMS MANAGEMENT
+    // ═══════════════════════════════════════════════════════════
+    let editingEntryItemId = null;
+
+    async function loadEntryMenuItems() {
+      try {
+        const res = await fetch('/api/entry-menu');
+        const items = await res.json();
+        // Only show custom entry items (not the default ones)
+        const customItems = items.filter(i => i.type === 'entry_menu');
+        const tbody = document.getElementById('entryMenuBody');
+        if (customItems.length === 0) {
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No custom items yet. Click \u201c➕ Add Item\u201d to add extra items to the employee entry page.</td></tr>';
+          return;
+        }
+        let html = '';
+        customItems.forEach((item, i) => {
+          const safeName = (item.name || '').replace(/'/g, "\\\'").replace(/"/g, '&quot;');
+          const sid = String(item.id);
+          html += '<tr>' +
+            '<td>' + (i + 1) + '</td>' +
+            '<td style="font-size:1.5rem;text-align:center;">' + item.icon + '</td>' +
+            '<td style="font-weight:700;">' + item.name + '</td>' +
+            '<td style="font-weight:700;">₹' + item.price + '</td>' +
+            '<td>' +
+              '<button class="btn btn-primary btn-sm" onclick="editEntryItem(\'' + sid + '\')" style="margin-right:6px;">✏️</button>' +
+              '<button class="btn btn-danger btn-sm" onclick="deleteEntryItem(\'' + sid + '\', \'' + safeName + '\')">🗑️</button>' +
+            '</td>' +
+          '</tr>';
+        });
+        tbody.innerHTML = html;
+      } catch (e) {
+        console.error('Error loading entry menu:', e);
+      }
+    }
+
+    function showAddEntryItem() {
+      editingEntryItemId = null;
+      document.getElementById('entryItemModalTitle').textContent = '➕ Add Entry Item';
+      document.getElementById('entryItemName').value = '';
+      document.getElementById('entryItemIcon').value = '🍽️';
+      document.getElementById('entryItemPrice').value = '';
+      document.getElementById('entryItemSaveBtn').textContent = '💾 Save';
+      document.getElementById('entryItemModal').style.display = 'flex';
+      document.getElementById('entryItemName').focus();
+    }
+
+    async function editEntryItem(id) {
+      try {
+        const res = await fetch('/api/entry-menu');
+        const items = await res.json();
+        const item = items.find(i => String(i.id) === String(id));
+        if (!item) return alert('Item not found');
+        editingEntryItemId = id;
+        document.getElementById('entryItemModalTitle').textContent = '✏️ Edit Entry Item';
+        document.getElementById('entryItemName').value = item.name;
+        document.getElementById('entryItemIcon').value = item.icon;
+        document.getElementById('entryItemPrice').value = item.price;
+        document.getElementById('entryItemSaveBtn').textContent = '💾 Update';
+        document.getElementById('entryItemModal').style.display = 'flex';
+        document.getElementById('entryItemName').focus();
+      } catch (e) {
+        alert('Error loading item');
+      }
+    }
+
+    function closeEntryItemModal() {
+      document.getElementById('entryItemModal').style.display = 'none';
+      editingEntryItemId = null;
+    }
+
+    async function saveEntryItem() {
+      const name = document.getElementById('entryItemName').value.trim();
+      const icon = document.getElementById('entryItemIcon').value.trim() || '🍽️';
+      const price = parseFloat(document.getElementById('entryItemPrice').value) || 0;
+      if (!name) { alert('Item name is required!'); return; }
+      const btn = document.getElementById('entryItemSaveBtn');
+      btn.disabled = true;
+      try {
+        let res;
+        if (editingEntryItemId) {
+          res = await fetch(`/api/entry-menu/${editingEntryItemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, price })
+          });
+        } else {
+          res = await fetch('/api/entry-menu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, price })
+          });
+        }
+        const data = await res.json();
+        if (data.success) {
+          closeEntryItemModal();
+          showEntryMenuToast(editingEntryItemId ? '\u2705 Item updated!' : '\u2705 Item added to entry page!');
+          await loadEntryMenuItems();
+        } else {
+          alert(data.error || 'Error saving item');
+        }
+      } catch (e) {
+        alert('Error saving item');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function deleteEntryItem(id, name) {
+      if (!confirm('Delete \"' + name + '\" from entry page?')) return;
+      try {
+        const res = await fetch(`/api/entry-menu/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showEntryMenuToast('\ud83d\uddd1\ufe0f Item removed from entry page!');
+          await loadEntryMenuItems();
+        }
+      } catch (e) {
+        alert('Error deleting item');
+      }
+    }
+
+    function showEntryMenuToast(msg) {
+      const toast = document.getElementById('entryMenuToast');
+      toast.textContent = msg;
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+      setTimeout(() => { toast.style.transform = 'translateX(-50%) translateY(120px)'; }, 2500);
+    }
+
     // Load menu items on init
     loadMenuItems();
+    loadEntryMenuItems();
     loadBookingSettings();
 
     // ─── Toast ──────────────────────────────────────────────

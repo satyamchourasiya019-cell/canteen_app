@@ -148,6 +148,8 @@
           <button class="qty-btn plus" onclick="changeQty('night_snack_qty',1)">+</button>
         </div>
       </div>
+      <!-- Custom items loaded dynamically from settings -->
+      <div id="customItemsContainer"></div>
     </div>
 
     <!-- ─── Other / Special Order ─── -->
@@ -272,6 +274,8 @@
     // savedQty tracks what was saved previously (for add-only enforcement)
     let savedQty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0 };
     let qty = { tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0 };
+    let customItems = [];  // dynamic items from settings
+    let customQty = {};    // qty for custom items
 
     const monthNames = [
       'January','February','March','April','May','June',
@@ -287,10 +291,51 @@
       document.getElementById('price_lunch').textContent     = `₹${prices.lunch}`;
       document.getElementById('price_dinner').textContent    = `₹${prices.dinner}`;
       document.getElementById('price_snacks').textContent    = `₹${prices.snacks}`;
+      document.getElementById('price_night_snack').textContent = `₹${prices.night_snack || 25}`;
+
+      // Load custom entry items from settings
+      await loadCustomEntryItems();
 
       const dRes = await fetch('/api/today');
       const d = await dRes.json();
     })();
+
+    // ─── Custom Entry Items Loader ──────────────────────────
+    async function loadCustomEntryItems() {
+      try {
+        const res = await fetch('/api/entry-menu');
+        const allItems = await res.json();
+        customItems = allItems.filter(i => i.type === 'entry_menu');
+        const container = document.getElementById('customItemsContainer');
+        let html = '';
+        customItems.forEach(item => {
+          const fieldKey = 'custom_' + item.id;
+          customQty[fieldKey] = 0;
+          html += '<div class="food-item" data-key="' + fieldKey + '">' +
+            '<span class="food-icon">' + item.icon + '</span>' +
+            '<span class="food-name">' + item.name + '</span>' +
+            '<span class="food-price" style="font-weight:700;color:var(--accent);">₹' + item.price + '</span>' +
+            '<div class="qty-control">' +
+            '<button class="qty-btn minus" onclick="changeCustomQty(\'' + fieldKey + '\',-1)">−</button>' +
+            '<span class="qty-val" id="val_' + fieldKey + '">0</span>' +
+            '<button class="qty-btn plus" onclick="changeCustomQty(\'' + fieldKey + '\',1)">+</button>' +
+            '</div></div>';
+        });
+        container.innerHTML = html;
+      } catch(e) {
+        console.error('Error loading custom items:', e);
+      }
+    }
+
+    function changeCustomQty(fieldKey, delta) {
+      if (delta < 0 && !isEditMode) {
+        showToast('\u26a0\ufe0f To decrease, use Preview \u2192 Edit (Password)');
+        return;
+      }
+      customQty[fieldKey] = Math.max(0, (customQty[fieldKey] || 0) + delta);
+      document.getElementById('val_' + fieldKey).textContent = customQty[fieldKey];
+      calcTotal();
+    }
 
     // ─── Load Entry ─────────────────────────────────────────
     document.getElementById('loadBtn').addEventListener('click', () => loadEntry());
@@ -392,21 +437,25 @@
 
     async function fetchEmployeeName(empNo) {
       try {
-        // Try employees table first
-        const res = await fetch(`/api/employees/${empNo}`);
-        const data = await res.json();
-        empName = data.name || '';
-        // Also check serial register for more info
+        empName = '';
+        // 1. Check serial register by serial number (direct lookup, NOT text search)
         try {
-          const sRes = await fetch(`/api/serial-register?search=${empNo}&limit=5`);
-          const sData = await sRes.json();
-          if (sData.data && sData.data.length > 0) {
-            const match = sData.data.find(s => s.employee_name && s.status === 'Active');
-            if (match && match.employee_name) {
-              empName = match.employee_name;
+          const sRes = await fetch(`/api/serial-register/lookup/${empNo}`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (sData.employee_name && sData.status === 'Active') {
+              empName = sData.employee_name;
             }
           }
         } catch(e) {}
+        // 2. If not found in serial register, try employees table
+        if (!empName) {
+          try {
+            const res = await fetch(`/api/employees/${empNo}`);
+            const data = await res.json();
+            if (data.name) empName = data.name;
+          } catch(e) {}
+        }
         if (empName) {
           document.getElementById('empNameDisplay').style.display = 'flex';
           document.getElementById('empNameValue').textContent = empName;
@@ -460,6 +509,38 @@
 
       document.getElementById('otherDesc').value = entry.other_description || '';
       document.getElementById('otherAmt').value  = entry.other_amount || 0;
+
+      // Restore custom items
+      if (entry.custom_items) {
+        try {
+          const savedCustom = JSON.parse(entry.custom_items);
+          for (const ci of customItems) {
+            const fieldKey = 'custom_' + ci.id;
+            if (savedCustom[ci.id]) {
+              customQty[fieldKey] = savedCustom[ci.id].qty || 0;
+            } else {
+              customQty[fieldKey] = 0;
+            }
+            const valEl = document.getElementById('val_' + fieldKey);
+            if (valEl) valEl.textContent = customQty[fieldKey];
+          }
+        } catch(e) {}
+      } else {
+        // Reset custom items for new entry
+        for (const ci of customItems) {
+          const fieldKey = 'custom_' + ci.id;
+          customQty[fieldKey] = 0;
+          const valEl = document.getElementById('val_' + fieldKey);
+          if (valEl) valEl.textContent = 0;
+        }
+      }
+
+      // Update isExistingEntry to include custom items
+      let hasCustom = false;
+      for (const ci of customItems) {
+        if ((customQty['custom_' + ci.id] || 0) > 0) hasCustom = true;
+      }
+      isExistingEntry = isExistingEntry || hasCustom;
 
       isExistingEntry = (entry.tea_qty > 0 || entry.breakfast_qty > 0 || entry.lunch_qty > 0 ||
                          entry.dinner_qty > 0 || entry.snacks_qty > 0 || entry.night_snack_qty > 0 || entry.other_amount > 0);
@@ -568,14 +649,19 @@
     }
 
     function calcTotal() {
-      const t =
+      let t =
         qty.tea_qty * prices.tea +
         qty.breakfast_qty * prices.breakfast +
         qty.lunch_qty * prices.lunch +
         qty.dinner_qty * prices.dinner +
         qty.snacks_qty * prices.snacks +
-                     qty.night_snack_qty * (prices.night_snack || 25) +
+        qty.night_snack_qty * (prices.night_snack || 25) +
         (parseFloat(document.getElementById('otherAmt').value) || 0);
+      // Add custom items
+      for (const ci of customItems) {
+        const fieldKey = 'custom_' + ci.id;
+        t += (customQty[fieldKey] || 0) * (ci.price || 0);
+      }
       document.getElementById('dailyTotal').textContent = `₹${t.toLocaleString('en-IN')}`;
     }
 
@@ -609,6 +695,18 @@
         }
       }
 
+      // Add custom items to preview
+      let customPreviewTotal = 0;
+      for (const ci of customItems) {
+        const fieldKey = 'custom_' + ci.id;
+        const cqty = customQty[fieldKey] || 0;
+        if (cqty > 0) {
+          const camt = cqty * ci.price;
+          customPreviewTotal += camt;
+          html += `<tr><td>${ci.icon} ${ci.name}</td><td>${cqty}</td><td>₹${ci.price}</td><td class="total-cell">₹${camt}</td></tr>`;
+        }
+      }
+
       const otherDesc = document.getElementById('otherDesc').value;
       const otherAmt = parseFloat(document.getElementById('otherAmt').value) || 0;
       if (otherAmt > 0) {
@@ -619,7 +717,7 @@
 
       const total = qty.tea_qty * prices.tea + qty.breakfast_qty * prices.breakfast +
                      qty.lunch_qty * prices.lunch + qty.dinner_qty * prices.dinner +
-                     qty.snacks_qty * prices.snacks + otherAmt;
+                     qty.snacks_qty * prices.snacks + qty.night_snack_qty * (prices.night_snack || 25) + otherAmt + customPreviewTotal;
       document.getElementById('previewTotal').textContent = `₹${total.toLocaleString('en-IN')}`;
 
       const otherBox = document.getElementById('previewOther');
@@ -645,6 +743,18 @@
       btn.disabled = true;
       btn.textContent = 'Saving…';
 
+      // Build custom items data
+      const customItemsData = {};
+      let customTotal = 0;
+      for (const ci of customItems) {
+        const fieldKey = 'custom_' + ci.id;
+        const qtyVal = customQty[fieldKey] || 0;
+        if (qtyVal > 0) {
+          customItemsData[ci.id] = { name: ci.name, icon: ci.icon, price: ci.price, qty: qtyVal };
+          customTotal += qtyVal * ci.price;
+        }
+      }
+
       const body = {
         employee_number: currentEmp,
         entry_date: currentDate,
@@ -655,7 +765,8 @@
         snacks_qty: qty.snacks_qty,
         night_snack_qty: qty.night_snack_qty,
         other_description: document.getElementById('otherDesc').value,
-        other_amount: parseFloat(document.getElementById('otherAmt').value) || 0,
+        other_amount: (parseFloat(document.getElementById('otherAmt').value) || 0) + customTotal,
+        custom_items: Object.keys(customItemsData).length > 0 ? JSON.stringify(customItemsData) : '',
       };
 
       try {

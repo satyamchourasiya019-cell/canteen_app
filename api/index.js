@@ -326,7 +326,7 @@ app.get('/api/entry/:empNo', async (req, res) => {
   if (row) return res.json(row);
   const now = new Date();
   res.json({ employee_number: empNo, entry_date: today, entry_month: now.getMonth() + 1, entry_year: now.getFullYear(),
-    tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0, other_description: '', other_amount: 0, daily_total: 0 });
+    tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0, other_description: '', other_amount: 0, custom_items: '', daily_total: 0 });
 });
 
 app.get('/api/entry/:empNo/:date', async (req, res) => {
@@ -339,14 +339,14 @@ app.get('/api/entry/:empNo/:date', async (req, res) => {
   if (row) return res.json(row);
   const parts = date.split('-');
   res.json({ employee_number: empNo, entry_date: date, entry_month: parseInt(parts[1], 10), entry_year: parseInt(parts[0], 10),
-    tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, other_description: '', other_amount: 0, daily_total: 0 });
+    tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0, other_description: '', other_amount: 0, custom_items: '', daily_total: 0 });
 });
 
 // Save entry (POST)
 app.post('/api/entry', async (req, res) => {
   try {
     await loadPrices();
-    const { employee_number, entry_date, tea_qty, breakfast_qty, lunch_qty, dinner_qty, snacks_qty, night_snack_qty, other_description, other_amount } = req.body;
+    const { employee_number, entry_date, tea_qty, breakfast_qty, lunch_qty, dinner_qty, snacks_qty, night_snack_qty, other_description, other_amount, custom_items } = req.body;
     if (!employee_number || employee_number < 1 || employee_number > 300) return res.status(400).json({ error: 'Invalid employee number' });
 
     let entryDate, currentMonth, currentYear;
@@ -376,7 +376,7 @@ app.post('/api/entry', async (req, res) => {
     await setDocData(C.entries, docId, {
       employee_number, entry_date: entryDate, entry_month: currentMonth, entry_year: currentYear,
       tea_qty: tQ, breakfast_qty: bQ, lunch_qty: lQ, dinner_qty: dQ, snacks_qty: sQ, night_snack_qty: nsQ,
-      other_description: other_description || '', other_amount: oAmt, daily_total: dailyTotal,
+      other_description: other_description || '', other_amount: oAmt, custom_items: custom_items || '', daily_total: dailyTotal,
       created_at: nowStr(),
     });
 
@@ -962,6 +962,63 @@ app.put('/api/serial-register/:serialNo', async (req, res) => {
   await updateDocData(C.serialRegister, String(sn), updates);
   const updated = await getDocById(C.serialRegister, String(sn));
   res.json({ success: true, data: updated });
+});
+
+// ─── Custom Entry Menu Items (for employee entry page) ────────
+app.get('/api/entry-menu', async (_req, res) => {
+  const items = await getAll(C.menuItems, [], 'sort_order', true);
+  res.json(items);
+});
+
+app.post('/api/entry-menu', async (req, res) => {
+  try {
+    const { name, icon, price, field_key } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+    const existing = await getAll(C.menuItems);
+    const maxOrder = existing.length > 0 ? Math.max(...existing.map(i => i.sort_order || 0)) : 0;
+    const data = {
+      name: name.trim(),
+      icon: icon || '🍽️',
+      price: parseFloat(price) || 0,
+      available: 1,
+      sort_order: maxOrder + 1,
+      field_key: field_key || 'custom_' + Date.now(),
+      type: 'entry_menu',
+    };
+    const newId = await addDocData(C.menuItems, data);
+    res.json({ success: true, item: { id: newId, ...data } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/entry-menu/:id', async (req, res) => {
+  try {
+    const existing = await getDocById(C.menuItems, req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const updates = {};
+    if (req.body.name !== undefined) updates.name = req.body.name.trim();
+    if (req.body.icon !== undefined) updates.icon = req.body.icon;
+    if (req.body.price !== undefined) updates.price = parseFloat(req.body.price);
+    if (req.body.available !== undefined) updates.available = req.body.available ? 1 : 0;
+    if (req.body.sort_order !== undefined) updates.sort_order = parseInt(req.body.sort_order);
+    await updateDocData(C.menuItems, req.params.id, updates);
+    const updated = await getDocById(C.menuItems, req.params.id);
+    res.json({ success: true, item: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/entry-menu/:id', async (req, res) => {
+  try {
+    const existing = await getDocById(C.menuItems, req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    await deleteDocData(C.menuItems, req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════
