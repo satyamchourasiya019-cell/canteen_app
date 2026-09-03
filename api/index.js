@@ -315,8 +315,8 @@ function sendSSE(event, data) {
 //  ADMIN API PROTECTION MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════
 // Public endpoints that do NOT require authentication
-const PUBLIC_GET_PATHS = ['/api/today', '/api/prices', '/api/menu/available', '/api/booking-open'];
-const PUBLIC_POST_PATHS = ['/api/orders', '/api/complaints'];
+const PUBLIC_GET_PATHS = ['/api/today', '/api/prices', '/api/menu/available', '/api/booking-open', '/api/serial-register/lookup', '/api/password'];
+const PUBLIC_POST_PATHS = ['/api/orders', '/api/complaints', '/api/password/verify'];
 
 app.use('/api', (req, res, next) => {
   const path = req.path;
