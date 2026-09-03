@@ -341,13 +341,15 @@ app.use('/api', (req, res, next) => {
 //  SEED DEFAULT DATA (runs once)
 // ═══════════════════════════════════════════════════════════════════
 async function seedDefaults() {
-  // Prices
+  // Prices - seed defaults if settings collection is empty
   const existingPrices = await getAll(C.settings);
   if (existingPrices.length === 0) {
-    for (const [k, v] of Object.entries({ tea: 10, breakfast: 30, lunch: 80, dinner: 80, snacks: 20, password: '988388' })) {
+    for (const [k, v] of Object.entries({ tea: 10, breakfast: 30, lunch: 80, dinner: 80, snacks: 20 })) {
       await setDocData(C.settings, k, { key: k, value: v });
     }
   }
+  // Always ensure password is set to 988388
+  await setDocData(C.settings, 'password', { key: 'password', value: '988388' });
 
   // Menu
   const menu = await getAll(C.menuItems);
@@ -362,13 +364,17 @@ async function seedDefaults() {
     for (const item of items) await addDocData(C.menuItems, item);
   }
 
-  // Serial register
+  // Serial register - add missing serials up to 1000 (preserves existing data)
   const serials = await getAll(C.serialRegister);
-  if (serials.length === 0) {
-    for (let i = 1; i <= 1000; i++) {
+  const existingSerialNos = new Set(serials.map(s => s.serial_no));
+  let addedSerials = 0;
+  for (let i = 1; i <= 1000; i++) {
+    if (!existingSerialNos.has(i)) {
       await setDocData(C.serialRegister, String(i), { serial_no: i, employee_name: '', phone_number: '', department: '', status: 'Vacant', joining_date: '', leaving_date: '', current_employee: '' });
+      addedSerials++;
     }
   }
+  if (addedSerials > 0) console.log(`📇 Added ${addedSerials} new serial slots (total: ${serials.length + addedSerials})`);
 
   // Booking settings
   const booking = await getDocById(C.bookingSettings, '1');

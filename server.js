@@ -65,8 +65,8 @@ for (const [k, v] of Object.entries(defaultPrices)) {
   insertSetting.run(k, v);
 }
 
-// Seed default password if not present
-insertSetting.run('password', 988388); // password = 988388
+// Seed default password (always update to ensure correct value)
+db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run('password', 988388);
 
 // ─── EMPLOYEES TABLE (for name lookup from Excel) ────────────────
 db.exec(`
@@ -1322,17 +1322,16 @@ db.exec(`
 try { db.exec('ALTER TABLE serial_history ADD COLUMN phone_number TEXT DEFAULT ""'); } catch(e) {}
 try { db.exec("UPDATE serial_history SET phone_number = employee_id WHERE phone_number = '' AND employee_id != ''"); } catch(e) {}
 
-// Seed 500 serial numbers if not present
+// Seed up to 1000 serial numbers (preserves existing data)
 const serialCount = db.prepare('SELECT COUNT(*) as count FROM serial_register').get();
-if (serialCount.count === 0) {
-  const insertSerial = db.prepare('INSERT OR IGNORE INTO serial_register (serial_no, status) VALUES (?, ?)');
-  const seedTx = db.transaction(() => {
-    for (let i = 1; i <= 1000; i++) {
-      insertSerial.run(i, 'Vacant');
-    }
-  });
-  seedTx();
-}
+const insertSerial = db.prepare('INSERT OR IGNORE INTO serial_register (serial_no, status) VALUES (?, ?)');
+const seedSerialTx = db.transaction(() => {
+  for (let i = 1; i <= 1000; i++) {
+    insertSerial.run(i, 'Vacant');
+  }
+});
+seedSerialTx();
+console.log(`📇 Serial register: ${serialCount.count + Math.max(0, 1000 - serialCount.count)} slots ready (1-1000)`);
 
 // ─── API: Get all serial registers (paginated, searchable) ───
 app.get('/api/serial-register', (req, res) => {
@@ -1348,7 +1347,7 @@ app.get('/api/serial-register', (req, res) => {
   let params = [];
 
   if (search) {
-    conditions.push('(serial_no LIKE ? OR employee_name LIKE ? OR employee_id LIKE ? OR department LIKE ?)');
+    conditions.push('(serial_no LIKE ? OR employee_name LIKE ? OR phone_number LIKE ? OR department LIKE ?)');
     const s = `%${search}%`;
     params.push(s, s, s, s);
   }
