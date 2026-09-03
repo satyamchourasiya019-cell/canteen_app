@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Canteen Book" />
   <link rel="apple-touch-icon" href="/logo.svg" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <script src="/auth.js"></script>
 </head>
 <body>
   <!-- ═══════════════ HEADER ═══════════════ -->
@@ -239,6 +240,24 @@
       </table>
     </div>
     <div class="toast" id="entryMenuToast" style="position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(120px);background:#6366f1;color:#fff;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;box-shadow:0 4px 20px rgba(99,102,241,0.35);transition:transform 0.35s ease;z-index:999;pointer-events:none;white-space:nowrap;">✅ Saved!</div>
+  </section>
+
+  <!-- ═══════════════ FEEDBACK QR CODE ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>⭐ Customer Feedback QR Code</h2>
+    </div>
+    <p class="hint-text">Scan this QR code to open the Customer Feedback page. Employees can use this to submit ratings and feedback.</p>
+    <div style="text-align:center;margin-top:16px;">
+      <div id="qrCodeContainer" style="display:inline-block;padding:16px;background:#fff;border:2px solid var(--border);border-radius:12px;">
+        <img id="qrCodeImg" alt="Feedback QR Code" style="width:220px;height:220px;image-rendering:pixelated;" />
+      </div>
+      <div style="margin-top:12px;">
+        <p id="feedbackUrl" style="font-size:0.85rem;color:var(--text-light);word-break:break-all;margin-bottom:10px;"></p>
+        <button class="btn btn-primary btn-sm" onclick="printQR()" style="margin-right:8px;">🖨️ Print QR Code</button>
+        <button class="btn btn-secondary btn-sm" onclick="downloadQR()">📥 Download QR</button>
+      </div>
+    </div>
   </section>
 
   <!-- ═══════════════ ADD/EDIT ENTRY ITEM MODAL ═══════════════ -->
@@ -819,6 +838,7 @@
     loadMenuItems();
     loadEntryMenuItems();
     loadBookingSettings();
+    generateFeedbackQR();
 
     // ─── Toast ──────────────────────────────────────────────
     function showToast(msg) {
@@ -826,6 +846,33 @@
       toast.textContent = msg || '✅ Saved!';
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // ─── QR Code Generation ──────────────────────────────────
+    function generateFeedbackQR() {
+      const baseUrl = window.location.origin;
+      const feedbackUrl = baseUrl + '/feedback';
+      document.getElementById('feedbackUrl').textContent = feedbackUrl;
+      // Use QR Server API for reliable QR generation
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(feedbackUrl) + '&bgcolor=FFFFFF&color=1e293b&margin=10';
+      document.getElementById('qrCodeImg').src = qrUrl;
+    }
+
+    function printQR() {
+      const url = document.getElementById('feedbackUrl').textContent;
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(url) + '&bgcolor=FFFFFF&color=1e293b&margin=15';
+      const win = window.open('', '_blank');
+      win.document.write('<html><head><title>Feedback QR Code</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui;margin:0;background:#fff}img{width:300px;height:300px}h2{margin:20px 0 8px}p{color:#64748b;margin:0}</style></head><body><h2>⭐ Customer Feedback</h2><p>Scan to give your feedback</p><img src="' + qrUrl + '" /><p style="margin-top:20px;font-size:0.9rem;">' + url + '</p><script>setTimeout(()=>window.print(),1000)<\/script></body></html>');
+      win.document.close();
+    }
+
+    function downloadQR() {
+      const url = document.getElementById('feedbackUrl').textContent;
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=' + encodeURIComponent(url) + '&bgcolor=FFFFFF&color=1e293b&margin=15&format=png';
+      const a = document.createElement('a');
+      a.href = qrUrl;
+      a.download = 'customer-feedback-qr.png';
+      a.click();
     }
 
   </script>

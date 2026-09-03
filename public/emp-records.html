@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Canteen Book" />
   <link rel="apple-touch-icon" href="/logo.svg" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <script src="/auth.js"></script>
 </head>
 <body>
   <!-- ═══════════════ HEADER ═══════════════ -->
@@ -209,7 +210,7 @@
 
     async function loadRecords() {
       const empNo = parseInt(document.getElementById('empNo').value, 10);
-      if (!empNo || empNo < 1 || empNo > 300) {
+      if (!empNo || empNo < 1 || empNo > 1000) {
         const inp = document.getElementById('empNo');
         inp.focus();
         inp.classList.add('shake');

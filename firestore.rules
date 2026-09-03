@@ -1,0 +1,231 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DEFAULT DENY: No access unless explicitly allowed below
+    // ═══════════════════════════════════════════════════════════════
+
+    // Helper: Check if request is from an authenticated admin
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid != null
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid));
+    }
+
+    // Helper: Check admin role level
+    function hasRole(role) {
+      return isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == role
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+    }
+
+    // Helper: Check admin has minimum role level
+    function hasMinRole(minRole) {
+      return isAdmin() && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true
+        && (
+          get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'
+          || (minRole != 'SUPER_ADMIN' && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'ADMIN')
+          || (minRole == 'CANTEEN_STAFF' && (
+              get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'ADMIN'
+              || get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'
+              || get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'CANTEEN_STAFF'
+            ))
+        );
+    }
+
+    // Helper: Validate that only expected fields are present in write
+    function onlyFieldsAllowed(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ADMIN USERS - Only Super Admin can manage
+    // ═══════════════════════════════════════════════════════════════
+    match /admin_users/{uid} {
+      // Users can read their own profile for auth verification
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // Only Super Admin can create/update/delete admin users
+      allow create, update, delete: if hasRole('SUPER_ADMIN');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  EMPLOYEES - Admin only (Sensitive data)
+    // ═══════════════════════════════════════════════════════════════
+    match /employees/{empNo} {
+      // Only authenticated admin users can read employee data
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      // Only Admin+ can write
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed(['employee_number', 'name', 'status', 'inactive_reason', 'archived_at']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ENTRIES (Daily food entries) - Admin only
+    // ═══════════════════════════════════════════════════════════════
+    match /entries/{docId} {
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed([
+          'employee_number', 'entry_date', 'entry_month', 'entry_year',
+          'tea_qty', 'breakfast_qty', 'lunch_qty', 'dinner_qty', 'snacks_qty',
+          'night_snack_qty', 'other_description', 'other_amount', 'custom_items',
+          'daily_total', 'created_at'
+        ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SETTINGS (Prices, passwords) - Admin only
+    // ═══════════════════════════════════════════════════════════════
+    match /settings/{key} {
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed(['key', 'value']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  PAYMENTS - Admin only (Financial data)
+    // ═══════════════════════════════════════════════════════════════
+    match /payments/{docId} {
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed([
+          'employee_number', 'month', 'year', 'amount_paid',
+          'status', 'note', 'created_at'
+        ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  PENDING CARRY - Admin only (Financial data)
+    // ═══════════════════════════════════════════════════════════════
+    match /pending_carry/{docId} {
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed([
+          'employee_number', 'from_month', 'from_year', 'pending_amount',
+          'carried_to_month', 'carried_to_year', 'created_at'
+        ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ONLINE ORDERS
+    //  - Create: Public (anyone can place an order)
+    //  - Read/Update: Admin/Canteen Staff only
+    // ═══════════════════════════════════════════════════════════════
+    match /online_orders/{orderId} {
+      // Public can create orders (validated by backend)
+      allow create: if true
+        && request.resource.data.keys().hasOnly([
+          'order_id', 'employee_name', 'phone_number', 'department',
+          'items', 'total_amount', 'status', 'created_at', 'updated_at'
+        ]);
+      // Only admins can read orders
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      // Only admins can update orders (status changes)
+      allow update: if hasMinRole('CANTEEN_STAFF')
+        && request.resource.data.keys().hasOnly([
+          'status', 'updated_at'
+        ]);
+      // No public deletion of orders
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  MENU ITEMS
+    //  - Read (available): Public
+    //  - Read (all), Write: Admin only
+    // ═══════════════════════════════════════════════════════════════
+    match /menu_items/{itemId} {
+      // Public can read available menu items
+      allow read: if true;
+      // Admin can write menu items
+      allow create, update, delete: if hasMinRole('ADMIN');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SERIAL REGISTER - Admin only (Employee history)
+    // ═══════════════════════════════════════════════════════════════
+    match /serial_register/{serialNo} {
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      // Allow backend to write via Admin SDK (rules don't apply to Admin SDK)
+      // Client-side: only Admin+ can write
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed([
+          'serial_no', 'employee_name', 'phone_number', 'department',
+          'status', 'joining_date', 'leaving_date', 'current_employee'
+        ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SERIAL HISTORY - Admin only (Immutable historical records)
+    // ═══════════════════════════════════════════════════════════════
+    match /serial_history/{docId} {
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      // Only allow creation, no updates or deletions (history is immutable)
+      allow create: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed([
+          'serial_no', 'employee_name', 'phone_number', 'department',
+          'joining_date', 'leaving_date', 'status', 'closed_at'
+        ]);
+      allow update, delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  COMPLAINTS
+    //  - Create: Public (employees can submit complaints)
+    //  - Read/Update: Admin only
+    // ═══════════════════════════════════════════════════════════════
+    match /complaints/{complaintId} {
+      // Public can submit complaints/feedback
+      allow create: if true
+        && request.resource.data.keys().hasOnly([
+          'employee_name', 'employee_number', 'phone_number', 'department',
+          'category', 'rating', 'subject', 'description', 'status',
+          'admin_reply', 'created_at', 'updated_at'
+        ]);
+      // Admin can read all complaints
+      allow read: if isAdmin()
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.active == true;
+      // Admin can update complaint status and replies
+      allow update: if hasMinRole('ADMIN')
+        && request.resource.data.keys().hasOnly([
+          'status', 'admin_reply', 'updated_at'
+        ]);
+    }
+      // No deletion of complaints (preserve records)
+      allow delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  BOOKING SETTINGS - Admin only
+    // ═══════════════════════════════════════════════════════════════
+    match /booking_settings/{docId} {
+      // Public can read booking settings (to check if booking is open)
+      allow read: if true;
+      // Admin can update booking settings
+      allow write: if hasMinRole('ADMIN')
+        && onlyFieldsAllowed([
+          'booking_open', 'start_time', 'end_time',
+          'closed_message', 'timer_end', 'updated_at'
+        ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  AUDIT LOGS - Admin read only, Backend write only
+    // ═══════════════════════════════════════════════════════════════
+    match /audit_logs/{logId} {
+      // Only Super Admin can read audit logs
+      allow read: if hasRole('SUPER_ADMIN');
+      // No client-side write - only backend Admin SDK writes
+      allow create, update, delete: if false;
+    }
+  }
+}

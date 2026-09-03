@@ -385,7 +385,7 @@
           document.getElementById('placedOrderId').textContent = `#${data.order.order_id}`;
           document.getElementById('bottomBar').style.display = 'none';
           renderStatusDetails(data.order);
-          startStatusPolling(data.order.id);
+          startStatusPolling(data.order.order_id);
         } else {
           showToast('❌ Error: ' + (data.error || 'Unknown'));
           btn.disabled = false; btn.textContent = '🛒 Place Order';
@@ -408,14 +408,15 @@
         <div class="detail-row"><span>Order Time</span><span>${time}</span></div>`;
     }
 
-    function startStatusPolling(dbId) {
+    function startStatusPolling(orderId) {
       if (pollInterval) clearInterval(pollInterval);
       pollInterval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/orders?date=${new Date().toISOString().substring(0,10)}`);
-          const orders = await res.json();
-          const myOrder = orders.find(o => o.id === dbId);
-          if (myOrder) updateStatusUI(myOrder.status);
+          const res = await fetch(`/api/orders/track/${orderId}`);
+          if (res.ok) {
+            const order = await res.json();
+            if (order) updateStatusUI(order.status);
+          }
         } catch(e) {}
       }, 3000);
     }

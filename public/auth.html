@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login - Digital Canteen Book</title>
+  <link rel="icon" type="image/png" href="/icon-192.png" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .login-card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);width:100%;max-width:420px;overflow:hidden}
+    .login-header{background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);color:#fff;padding:32px 24px;text-align:center}
+    .login-header .logo{font-size:2.5rem;margin-bottom:8px}
+    .login-header h1{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+    .login-header p{font-size:0.85rem;opacity:0.85}
+    .login-body{padding:28px 24px}
+    .form-group{margin-bottom:18px}
+    .form-group label{display:block;font-size:0.8rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+    .form-group input{width:100%;padding:14px 16px;font-size:1rem;font-weight:600;border:2px solid #e2e8f0;border-radius:10px;outline:none;transition:border-color 0.2s}
+    .form-group input:focus{border-color:#2563eb}
+    .form-group input.error{border-color:#dc2626}
+    .login-btn{width:100%;padding:14px;font-size:1.05rem;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;cursor:pointer;transition:all 0.2s}
+    .login-btn:hover{background:linear-gradient(135deg,#1d4ed8,#1e40af);transform:translateY(-1px)}
+    .login-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+    .error-msg{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:16px;display:none}
+    .error-msg.show{display:block}
+    .back-link{text-align:center;margin-top:16px;font-size:0.85rem;color:#64748b}
+    .back-link a{color:#2563eb;text-decoration:none;font-weight:600}
+    .back-link a:hover{text-decoration:underline}
+    .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:8px;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .security-note{margin-top:20px;padding:12px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.78rem;color:#0369a1;text-align:center}
+    .security-note strong{display:block;margin-bottom:2px}
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">🍽️</div>
+      <h1>Digital Canteen Book</h1>
+      <p>Admin Dashboard Login</p>
+    </div>
+    <div class="login-body">
+      <div class="error-msg" id="errorMsg"></div>
+      <form id="loginForm" onsubmit="return false;">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="email" placeholder="admin@example.com" required autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="login-btn" id="loginBtn">
+          Sign In
+        </button>
+      </form>
+      <div class="security-note">
+        <strong>🔒 Secure Access Only</strong>
+        This dashboard is restricted to authorized administrators. All login attempts are logged.
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // ─── Firebase Config ──────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyCqiJDd9mijLa3AV3S7JgyLlkkoCODFlJk",
+      authDomain: "canteen-app-bbaf5.firebaseapp.com",
+      projectId: "canteen-app-bbaf5",
+      storageBucket: "canteen-app-bbaf5.firebasestorage.app",
+      messagingSenderId: "793607116131",
+      appId: "1:793607116131:web:0097a1db298778fa43af56",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // ─── Redirect if already logged in ────────────────────────
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        window.location.href = '/';
+      }
+    });
+
+    // ─── Login Form Handler ───────────────────────────────────
+    const loginForm = document.getElementById('loginForm');
+    const errorMsg = document.getElementById('errorMsg');
+    const loginBtn = document.getElementById('loginBtn');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('show');
+    }
+
+    function hideError() {
+      errorMsg.classList.remove('show');
+    }
+
+    function setLoading(loading) {
+      loginBtn.disabled = loading;
+      if (loading) {
+        loginBtn.innerHTML = '<span class="spinner"></span>Signing in...';
+      } else {
+        loginBtn.textContent = 'Sign In';
+      }
+    }
+
+    loginForm.addEventListener('submit', async () => {
+      hideError();
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        showError('Please enter both email and password.');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        // Verify this user is an authorized admin
+        const token = await user.getIdToken();
+
+        // Check admin_users collection
+        const db = firebase.firestore();
+        const userDoc = await db.collection('admin_users').doc(user.uid).get();
+
+        if (!userDoc.exists) {
+          await auth.signOut();
+          showError('Your account is not authorized for admin access. Contact the Developer.');
+          setLoading(false);
+          return;
+        }
+
+        const userData = userDoc.data();
+        if (userData.active === false) {
+          await auth.signOut();
+          showError('Your admin account has been deactivated. Contact your administrator.');
+          setLoading(false);
+          return;
+        }
+
+        // Store token for API calls
+        localStorage.setItem('fbAuthToken', token);
+        localStorage.setItem('fbUser', JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          role: userData.role,
+          name: userData.name,
+        }));
+
+        // Redirect to dashboard
+        window.location.href = '/';
+      } catch (err) {
+        console.error('Login error:', err);
+        setLoading(false);
+
+        if (err.code === 'auth/user-not-found') {
+          showError('No account found with this email address.');
+        } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+          showError('Incorrect email or password. Please try again.');
+        } else if (err.code === 'auth/too-many-requests') {
+          showError('Too many failed login attempts. Please wait a few minutes and try again.');
+        } else if (err.code === 'auth/network-request-failed') {
+          showError('Network error. Please check your connection and try again.');
+        } else {
+          showError('Login failed. Please try again.');
+        }
+      }
+    });
+
+    // ─── Enter key support ────────────────────────────────────
+    passwordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loginForm.dispatchEvent(new Event('submit'));
+    });
+  </script>
+</body>
+</html>

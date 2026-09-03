@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Developer Panel - Digital Canteen Book</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#667eea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/logo.svg" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <script src="/auth.js"></script>
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="top-bar">
+    <h1>🍽️ Digital Canteen Book</h1>
+    <nav>
+      <a href="/" class="nav-btn">👨‍💼 Employee</a>
+      <a href="/payment" class="nav-btn">💰 Payment</a>
+      <a href="/records" class="nav-btn">📋 All Records</a>
+      <a href="/pending" class="nav-btn">⏳ Pending</a>
+      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
+      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
+      <a href="/complaints" class="nav-btn">⭐ Feedback</a>
+      <a href="/settings" class="nav-btn">⚙️ Settings</a>
+      <a href="/developer" class="nav-btn active">🛠️ Developer</a>
+    </nav>
+  </header>
+
+  <div class="date-banner" id="dateBanner">Loading date…</div>
+
+  <div style="max-width:1100px;margin:0 auto;padding:20px;">
+
+    <!-- ACCESS CHECK -->
+    <div id="accessDenied" style="display:none;text-align:center;padding:60px 20px;">
+      <div style="font-size:4rem;margin-bottom:16px;">🔒</div>
+      <h2 style="color:var(--danger);margin-bottom:8px;">Access Denied</h2>
+      <p style="color:var(--text-light);">You need Developer or Super Admin access to view this page.</p>
+      <a href="/" class="btn btn-primary" style="margin-top:20px;display:inline-block;">← Back to Dashboard</a>
+    </div>
+
+    <div id="developerContent" style="display:none;">
+
+      <!-- ═══════════ ADMIN USERS MANAGEMENT ═══════════ -->
+      <section class="card settings-card" style="margin-bottom:20px;">
+        <div class="section-header">
+          <h2>👥 Admin Users Management</h2>
+          <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">➕ Add Admin User</button>
+        </div>
+        <p class="hint-text">Manage all admin users. Add, remove, or change roles. Only the Developer can manage admin accounts.</p>
+
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr class="empty-row"><td colspan="6">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══════════ QUICK ACTIONS ═══════════ -->
+      <section class="card settings-card" style="margin-bottom:20px;">
+        <div class="section-header">
+          <h2>⚡ Quick Actions</h2>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:16px;">
+          <button class="btn btn-primary" onclick="removeAllAdmins()" style="padding:16px;text-align:left;">
+            🗑️ Remove All Admins (except Developer)
+          </button>
+          <button class="btn btn-primary" onclick="resetAllRoles()" style="padding:16px;text-align:left;">
+            🔄 Reset All Roles to ADMIN
+          </button>
+          <button class="btn btn-primary" onclick="viewAuditLogs()" style="padding:16px;text-align:left;">
+            📋 View Audit Logs
+          </button>
+          <button class="btn btn-primary" onclick="exportUserData()" style="padding:16px;text-align:left;">
+            📤 Export User Data
+          </button>
+        </div>
+      </section>
+
+      <!-- ═══════════ AUDIT LOGS ═══════════ -->
+      <section class="card settings-card" id="auditSection" style="display:none;margin-bottom:20px;">
+        <div class="section-header">
+          <h2>📋 Audit Logs</h2>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('auditSection').style.display='none'">✕ Close</button>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Resource</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="auditBody">
+              <tr class="empty-row"><td colspan="5">Loading audit logs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ═══════════ ADD/EDIT USER MODAL ═══════════ -->
+  <div class="modal-overlay" id="userModal" style="display:none;">
+    <div class="modal-content card modal-sm">
+      <div class="modal-header">
+        <h2 id="userModalTitle">➕ Add Admin User</h2>
+        <button class="modal-close" onclick="closeUserModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group" style="margin-bottom:12px;">
+          <label style="font-weight:700;">Firebase Auth UID *</label>
+          <input type="text" id="modalUid" placeholder="Firebase Auth UID" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label style="font-weight:700;">Email *</label>
+          <input type="email" id="modalEmail" placeholder="admin@example.com" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label style="font-weight:700;">Name</label>
+          <input type="text" id="modalName" placeholder="Full name" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+        </div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label style="font-weight:700;">Role *</label>
+          <select id="modalRole" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="ADMIN">ADMIN</option>
+            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+            <option value="CANTEEN_STAFF">CANTEEN_STAFF</option>
+            <option value="DEVELOPER">DEVELOPER</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveUser()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast">✅ Done!</div>
+
+  <script>
+    let allUsers = [];
+    let editingUid = null;
+
+    const roleStyles = {
+      DEVELOPER: 'background:#7c3aed;color:#fff;',
+      SUPER_ADMIN: 'background:#dc2626;color:#fff;',
+      ADMIN: 'background:#2563eb;color:#fff;',
+      CANTEEN_STAFF: 'background:#059669;color:#fff;',
+    };
+
+    // ─── Init ───────────────────────────────────────────────
+    (async function init() {
+      // Check access
+      const user = window.CanteenAuth?.getUser?.();
+      if (!user || !['DEVELOPER', 'SUPER_ADMIN'].includes(user.role)) {
+        document.getElementById('accessDenied').style.display = 'block';
+        return;
+      }
+      document.getElementById('developerContent').style.display = 'block';
+      await loadUsers();
+    })();
+
+    // ─── Load Users ─────────────────────────────────────────
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/admin/users');
+        if (res.ok) {
+          allUsers = await res.json();
+          renderUsers();
+        }
+      } catch (e) {
+        console.error('Error loading users:', e);
+      }
+    }
+
+    function renderUsers() {
+      const tbody = document.getElementById('usersBody');
+      if (!allUsers || allUsers.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No admin users found.</td></tr>';
+        return;
+      }
+      let html = '';
+      allUsers.forEach((u, i) => {
+        const roleStyle = roleStyles[u.role] || '';
+        const status = u.active !== false ? '🟢 Active' : '🔴 Inactive';
+        html += `<tr>
+          <td>${i + 1}</td>
+          <td style="font-weight:600;">${u.email || '—'}</td>
+          <td>${u.name || '—'}</td>
+          <td><span style="${roleStyle}padding:4px 12px;border-radius:12px;font-size:0.8rem;font-weight:700;">${u.role}</span></td>
+          <td>${status}</td>
+          <td>
+            <button class="btn btn-primary btn-sm" onclick="editUser('${u.id}')" style="margin-right:4px;">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.email}')">🗑️</button>
+          </td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+
+    // ─── Add/Edit User Modal ────────────────────────────────
+    function showAddUserModal() {
+      editingUid = null;
+      document.getElementById('userModalTitle').textContent = '➕ Add Admin User';
+      document.getElementById('modalUid').value = '';
+      document.getElementById('modalUid').disabled = false;
+      document.getElementById('modalEmail').value = '';
+      document.getElementById('modalName').value = '';
+      document.getElementById('modalRole').value = 'ADMIN';
+      document.getElementById('userModal').style.display = 'flex';
+    }
+
+    function editUser(uid) {
+      const user = allUsers.find(u => u.id === uid);
+      if (!user) return;
+      editingUid = uid;
+      document.getElementById('userModalTitle').textContent = '✏️ Edit Admin User';
+      document.getElementById('modalUid').value = uid;
+      document.getElementById('modalUid').disabled = true;
+      document.getElementById('modalEmail').value = user.email || '';
+      document.getElementById('modalName').value = user.name || '';
+      document.getElementById('modalRole').value = user.role || 'ADMIN';
+      document.getElementById('userModal').style.display = 'flex';
+    }
+
+    function closeUserModal() {
+      document.getElementById('userModal').style.display = 'none';
+      editingUid = null;
+    }
+
+    async function saveUser() {
+      const uid = document.getElementById('modalUid').value.trim();
+      const email = document.getElementById('modalEmail').value.trim();
+      const name = document.getElementById('modalName').value.trim();
+      const role = document.getElementById('modalRole').value;
+
+      if (!uid) { alert('Firebase Auth UID is required'); return; }
+      if (!email) { alert('Email is required'); return; }
+
+      try {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, email, name, role, active: true }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeUserModal();
+          showToast('✅ User saved!');
+          await loadUsers();
+        } else {
+          alert(data.error || 'Error saving user');
+        }
+      } catch (e) {
+        alert('Error saving user');
+      }
+    }
+
+    async function deleteUser(uid, email) {
+      if (!confirm(`Remove admin access for ${email}?`)) return;
+      try {
+        const res = await fetch(`/api/admin/users/${uid}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ User removed!');
+          await loadUsers();
+        } else {
+          alert(data.error || 'Error removing user');
+        }
+      } catch (e) {
+        alert('Error removing user');
+      }
+    }
+
+    // ─── Quick Actions ──────────────────────────────────────
+    async function removeAllAdmins() {
+      if (!confirm('⚠️ This will remove ALL admin users except yourself (Developer). Continue?')) return;
+      if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+
+      const currentUser = window.CanteenAuth?.getUser?.();
+      let removed = 0;
+      for (const u of allUsers) {
+        if (u.id !== currentUser?.uid && u.role !== 'DEVELOPER') {
+          try {
+            await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' });
+            removed++;
+          } catch (e) {}
+        }
+      }
+      showToast(`✅ ${removed} admin(s) removed`);
+      await loadUsers();
+    }
+
+    async function resetAllRoles() {
+      if (!confirm('Reset all admin roles to ADMIN? (Developer and Super Admin roles preserved)')) return;
+      let updated = 0;
+      for (const u of allUsers) {
+        if (u.role !== 'DEVELOPER' && u.role !== 'SUPER_ADMIN') {
+          try {
+            await fetch('/api/admin/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: u.id, email: u.email, name: u.name, role: 'ADMIN', active: u.active !== false }),
+            });
+            updated++;
+          } catch (e) {}
+        }
+      }
+      showToast(`✅ ${updated} role(s) reset`);
+      await loadUsers();
+    }
+
+    async function viewAuditLogs() {
+      const section = document.getElementById('auditSection');
+      section.style.display = 'block';
+      try {
+        const res = await fetch('/api/admin/audit-logs');
+        if (res.ok) {
+          const logs = await res.json();
+          const tbody = document.getElementById('auditBody');
+          if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No audit logs found.</td></tr>';
+            return;
+          }
+          let html = '';
+          logs.slice(0, 50).forEach(l => {
+            html += `<tr>
+              <td style="white-space:nowrap;">${l.timestamp || '—'}</td>
+              <td>${l.user_email || l.user_id || '—'}</td>
+              <td style="font-weight:600;">${l.action || '—'}</td>
+              <td>${l.resource_type || '—'}/${l.resource_id || ''}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${JSON.stringify(l.new_value || '')}">${l.action || '—'}</td>
+            </tr>`;
+          });
+          tbody.innerHTML = html;
+        }
+      } catch (e) {
+        console.error('Error loading audit logs:', e);
+      }
+    }
+
+    async function exportUserData() {
+      const data = JSON.stringify(allUsers, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `admin-users-export-${new Date().toISOString().substring(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('✅ User data exported!');
+    }
+
+    // ─── Toast ──────────────────────────────────────────────
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+  </script>
+  <script src="/date-clock.js"></script>
+</body>
+</html>

@@ -10,12 +10,41 @@ const {
   query, where, orderBy, limit, startAfter, enableIndexedDbPersistence
 } = require('firebase/firestore');
 
+// ═══════════════════════════════════════════════════════════════════
+//  SECURITY IMPORTS
+// ═══════════════════════════════════════════════════════════════════
+const { initFirebaseAdmin, requireAuth, requirePermission } = require('../security/auth');
+const { orderLimiter, publicReadLimiter, apiLimiter } = require('../security/rateLimit');
+const { validateEntry, validateOrder, validateSerialRegister, validatePayment, validateMenu, validateComplaint } = require('../security/validation');
+const { initAudit, auditMiddleware, ACTIONS } = require('../security/audit');
+
 const app = express();
 const PORT = process.env.PORT || 3456;
 
-// Middleware
-app.use(express.json());
+// ─── Body size limit (10MB) ──────────────────────────────────
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// ─── Security Headers ─────────────────────────────────────────
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// ─── Initialize Firebase Admin + Audit ─────────────────────────
+try {
+  initFirebaseAdmin();
+  const { getFirestore } = require('firebase-admin/firestore');
+  initAudit(getFirestore());
+} catch (err) {
+  console.error('Security init warning:', err.message);
+}
+
+// ─── Audit middleware for all requests ─────────────────────────
+app.use(auditMiddleware);
 
 // ═══════════════════════════════════════════════════════════════════
 //  FIREBASE CONFIG
@@ -130,7 +159,14 @@ function todayISO() {
 }
 
 function nowStr() {
-  return new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const h = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d} ${h}:${min}:${s}`;
 }
 
 async function calcMonthBill(empNo, month, year) {
@@ -193,6 +229,78 @@ function calcMonthBillRaw(entries) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  AUTO-CLEANUP: Delete data older than 1 year
+// ═══════════════════════════════════════════════════════════════════
+async function cleanupOldData() {
+  try {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const cutoffYear = oneYearAgo.getFullYear();
+    const cutoffMonth = oneYearAgo.getMonth() + 1;
+    const cutoffDate = `${cutoffYear}-${String(cutoffMonth).padStart(2, '0')}-31`;
+
+    console.log(`🧹 Cleaning up data older than ${cutoffDate}...`);
+
+    // Clean old entries
+    const oldEntries = await getAll(C.entries, [
+      { field: 'entry_year', op: '<', value: cutoffYear },
+    ]);
+    // Also get entries from cutoff year but before cutoff month
+    const oldEntriesMonth = await getAll(C.entries, [
+      { field: 'entry_year', op: '==', value: cutoffYear },
+      { field: 'entry_month', op: '<', value: cutoffMonth },
+    ]);
+    const entriesToDelete = [...oldEntries, ...oldEntriesMonth];
+    for (const entry of entriesToDelete) {
+      await deleteDocData(C.entries, entry.id);
+    }
+
+    // Clean old payments
+    const oldPayments = await getAll(C.payments, [
+      { field: 'year', op: '<', value: cutoffYear },
+    ]);
+    const oldPaymentsMonth = await getAll(C.payments, [
+      { field: 'year', op: '==', value: cutoffYear },
+      { field: 'month', op: '<', value: cutoffMonth },
+    ]);
+    const paymentsToDelete = [...oldPayments, ...oldPaymentsMonth];
+    for (const payment of paymentsToDelete) {
+      await deleteDocData(C.payments, payment.id);
+    }
+
+    // Clean old carry-forward
+    const oldCarry = await getAll(C.pendingCarry, [
+      { field: 'from_year', op: '<', value: cutoffYear },
+    ]);
+    for (const carry of oldCarry) {
+      await deleteDocData(C.pendingCarry, carry.id);
+    }
+
+    // Clean old online orders (keep for 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const oldOrders = await getAll(C.onlineOrders);
+    let ordersDeleted = 0;
+    for (const order of oldOrders) {
+      if (order.created_at) {
+        const orderDate = new Date(order.created_at);
+        if (orderDate < sixMonthsAgo) {
+          await deleteDocData(C.onlineOrders, order.id);
+          ordersDeleted++;
+        }
+      }
+    }
+
+    console.log(`✅ Cleanup complete: ${entriesToDelete.length} entries, ${paymentsToDelete.length} payments, ${oldCarry.length} carry-forward, ${ordersDeleted} old orders deleted`);
+  } catch (err) {
+    console.error('⚠️ Cleanup error:', err.message);
+  }
+}
+
+// Run cleanup daily (check every 6 hours)
+setInterval(cleanupOldData, 6 * 60 * 60 * 1000);
+
+// ═══════════════════════════════════════════════════════════════════
 //  SSE (Server-Sent Events) for real-time order updates
 // ═══════════════════════════════════════════════════════════════════
 let sseClients = [];
@@ -202,6 +310,32 @@ function sendSSE(event, data) {
     try { c.res.write(payload); return true; } catch (e) { return false; }
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════
+//  ADMIN API PROTECTION MIDDLEWARE
+// ═══════════════════════════════════════════════════════════════════
+// Public endpoints that do NOT require authentication
+const PUBLIC_GET_PATHS = ['/api/today', '/api/prices', '/api/menu/available', '/api/booking-open'];
+const PUBLIC_POST_PATHS = ['/api/orders', '/api/complaints'];
+
+app.use('/api', (req, res, next) => {
+  const path = req.path;
+
+  // Allow public GET endpoints
+  if (req.method === 'GET' && PUBLIC_GET_PATHS.includes(path)) return next();
+
+  // Allow public POST endpoints (order creation, complaint submission)
+  if (req.method === 'POST' && PUBLIC_POST_PATHS.includes(path)) return next();
+
+  // Allow public order tracking (new endpoint)
+  if (req.method === 'GET' && path.startsWith('/orders/track/')) return next();
+
+  // Allow SSE stream for admin
+  if (path === '/orders/stream') return requireAuth(req, res, next);
+
+  // Everything else requires authentication
+  requireAuth(req, res, next);
+});
 
 // ═══════════════════════════════════════════════════════════════════
 //  SEED DEFAULT DATA (runs once)
@@ -231,7 +365,7 @@ async function seedDefaults() {
   // Serial register
   const serials = await getAll(C.serialRegister);
   if (serials.length === 0) {
-    for (let i = 1; i <= 500; i++) {
+    for (let i = 1; i <= 1000; i++) {
       await setDocData(C.serialRegister, String(i), { serial_no: i, employee_name: '', phone_number: '', department: '', status: 'Vacant', joining_date: '', leaving_date: '', current_employee: '' });
     }
   }
@@ -265,26 +399,34 @@ app.get('/api/prices', async (_req, res) => {
 
 app.post('/api/prices', async (req, res) => {
   const { prices } = req.body;
-  if (!prices) return res.status(400).json({ error: 'Invalid' });
+  if (!prices || typeof prices !== 'object') return res.status(400).json({ error: 'Invalid prices' });
+  const prevPrices = { ...PRICES };
   for (const [k, v] of Object.entries(prices)) {
     if (['tea','breakfast','lunch','dinner','snacks','night_snack'].includes(k)) {
-      await setDocData(C.settings, k, { key: k, value: parseFloat(v) || 0 });
-      PRICES[k] = parseFloat(v) || 0;
+      const numVal = parseFloat(v);
+      if (isNaN(numVal) || numVal < 0 || numVal > 9999) continue;
+      await setDocData(C.settings, k, { key: k, value: numVal });
+      PRICES[k] = numVal;
     }
   }
+  await req.audit(ACTIONS.PRICES_UPDATED, 'settings', 'prices', prevPrices, { ...PRICES });
   res.json({ success: true });
 });
 
 // ─── Password ─────────────────────────────────────────────────────
 app.get('/api/password', async (_req, res) => {
-  const row = await getDocById(C.settings, 'password');
-  res.json({ password: row ? String(row.value) : '0' });
+  // Return masked password for backward compatibility (actual auth now uses Firebase)
+  res.json({ password: '•••••' });
 });
 
 app.post('/api/password', async (req, res) => {
   const { password } = req.body;
-  if (password === undefined) return res.status(400).json({ error: 'Required' });
-  await setDocData(C.settings, 'password', { key: 'password', value: password });
+  if (password === undefined || password === null) return res.status(400).json({ error: 'Password required' });
+  // Get previous value for audit
+  const prevPw = await getDocById(C.settings, 'password');
+  await setDocData(C.settings, 'password', { key: 'password', value: String(password) });
+  // Audit log
+  await req.audit(ACTIONS.PASSWORD_CHANGED, 'settings', 'password', { value: prevPw ? '***' : null }, { value: '***' });
   res.json({ success: true });
 });
 
@@ -304,22 +446,28 @@ app.get('/api/employees', async (_req, res) => {
 
 app.get('/api/employees/:empNo', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
-  if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+  if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   const row = await getDocById(C.employees, empNo);
   res.json(row || { employee_number: empNo, name: '' });
 });
 
 app.post('/api/employees', async (req, res) => {
   const { employee_number, name } = req.body;
-  if (!employee_number) return res.status(400).json({ error: 'Required' });
-  await setDocData(C.employees, employee_number, { employee_number, name: name || '' });
+  if (!employee_number || employee_number < 1 || employee_number > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
+  const prevEmp = await getDocById(C.employees, employee_number);
+  await setDocData(C.employees, employee_number, {
+    employee_number, name: (name || '').trim(),
+    status: 'active', // Employee data protection: default active status
+    updated_at: nowStr(),
+  });
+  await req.audit(prevEmp ? ACTIONS.EMPLOYEE_UPDATED : ACTIONS.EMPLOYEE_CREATED, 'employees', employee_number, prevEmp, { employee_number, name });
   res.json({ success: true });
 });
 
 // ─── Entry (today / specific date) ────────────────────────────────
 app.get('/api/entry/:empNo', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
-  if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+  if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   const today = todayISO();
   const docId = `${empNo}_${today}`;
   const row = await getDocById(C.entries, docId);
@@ -332,7 +480,7 @@ app.get('/api/entry/:empNo', async (req, res) => {
 app.get('/api/entry/:empNo/:date', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
   const date = req.params.date;
-  if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+  if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date' });
   const docId = `${empNo}_${date}`;
   const row = await getDocById(C.entries, docId);
@@ -342,12 +490,12 @@ app.get('/api/entry/:empNo/:date', async (req, res) => {
     tea_qty: 0, breakfast_qty: 0, lunch_qty: 0, dinner_qty: 0, snacks_qty: 0, night_snack_qty: 0, other_description: '', other_amount: 0, custom_items: '', daily_total: 0 });
 });
 
-// Save entry (POST)
-app.post('/api/entry', async (req, res) => {
+// Save entry (POST) - with validation
+app.post('/api/entry', validateEntry, async (req, res) => {
   try {
     await loadPrices();
     const { employee_number, entry_date, tea_qty, breakfast_qty, lunch_qty, dinner_qty, snacks_qty, night_snack_qty, other_description, other_amount, custom_items } = req.body;
-    if (!employee_number || employee_number < 1 || employee_number > 300) return res.status(400).json({ error: 'Invalid employee number' });
+    if (!employee_number || employee_number < 1 || employee_number > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
 
     let entryDate, currentMonth, currentYear;
     if (entry_date && /^\d{4}-\d{2}-\d{2}$/.test(entry_date)) {
@@ -393,15 +541,17 @@ app.post('/api/entry', async (req, res) => {
   }
 });
 
-// Delete entry
+// Delete entry (with audit logging)
 app.delete('/api/entry/:empNo/:date', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
   const date = req.params.date;
-  if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+  if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
+  if (!/\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format' });
   const docId = `${empNo}_${date}`;
   const existing = await getDocById(C.entries, docId);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   await deleteDocData(C.entries, docId);
+  await req.audit('entry_deleted', 'entries', docId, existing, null);
   res.json({ success: true });
 });
 
@@ -413,7 +563,7 @@ app.get('/api/calendar/:empNo/:year/:month', async (req, res) => {
     const empNo = parseInt(req.params.empNo, 10);
     const year = parseInt(req.params.year, 10);
     const month = parseInt(req.params.month, 10);
-    if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+    if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
     const allEntries = await getAll(C.entries, [
       { field: 'employee_number', op: '==', value: empNo },
       { field: 'entry_year', op: '==', value: year },
@@ -429,7 +579,7 @@ app.get('/api/calendar/:empNo/:year/:month', async (req, res) => {
 // ─── History (current month for employee) ─────────────────────────
 app.get('/api/history/:empNo', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
-  if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+  if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   const now = new Date();
   const cm = now.getMonth() + 1, cy = now.getFullYear();
   const allEntries = await getAll(C.entries, [
@@ -498,7 +648,7 @@ app.get('/api/records/gross/:year', async (req, res) => {
 
 app.get('/api/records/:empNo/:year', async (req, res) => {
   const empNo = parseInt(req.params.empNo, 10), year = parseInt(req.params.year, 10);
-  if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+  if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   const allEntries = await getAll(C.entries, [
     { field: 'employee_number', op: '==', value: empNo },
     { field: 'entry_year', op: '==', value: year },
@@ -568,7 +718,7 @@ app.get('/api/payments/pending/all/:year', async (req, res) => {
 app.get('/api/payments/:empNo/:year/:month', async (req, res) => {
   try {
     const empNo = parseInt(req.params.empNo, 10), year = parseInt(req.params.year, 10), month = parseInt(req.params.month, 10);
-    if (!empNo || empNo < 1 || empNo > 300) return res.status(400).json({ error: 'Invalid' });
+    if (!empNo || empNo < 1 || empNo > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
     if (month > 1) await processCarryForward(empNo, month - 1, year, month, year);
     else if (year > 2020) await processCarryForward(empNo, 12, year - 1, 1, year);
     const bill = await calcMonthBill(empNo, month, year);
@@ -601,19 +751,21 @@ app.get('/api/payments/:empNo/:year/:month', async (req, res) => {
   }
 });
 
-app.post('/api/payments', async (req, res) => {
+app.post('/api/payments', validatePayment, async (req, res) => {
   try {
     const { employee_number, month, year, amount_paid, status, note } = req.body;
-    if (!employee_number || employee_number < 1 || employee_number > 300) return res.status(400).json({ error: 'Invalid' });
+    if (!employee_number || employee_number < 1 || employee_number > 1000) return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
     if (!month || !year) return res.status(400).json({ error: 'Month/year required' });
     const docId = `${employee_number}_${month}_${year}`;
+    const prevPayment = await getDocById(C.payments, docId);
     await setDocData(C.payments, docId, {
       employee_number, month, year,
       amount_paid: parseFloat(amount_paid) || 0,
       status: status || 'unpaid',
-      note: note || '',
+      note: (note || '').substring(0, 500),
       created_at: nowStr(),
     });
+    await req.audit(prevPayment ? ACTIONS.PAYMENT_UPDATED : ACTIONS.PAYMENT_RECORDED, 'payments', docId, prevPayment, { employee_number, month, year, amount_paid, status });
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     await processCarryForward(employee_number, month, year, nextMonth, nextYear);
@@ -635,7 +787,7 @@ app.get('/api/menu/available', async (_req, res) => {
   res.json(items);
 });
 
-app.post('/api/menu', async (req, res) => {
+app.post('/api/menu', validateMenu, async (req, res) => {
   try {
     const { name, icon, price, available } = req.body;
     if (!name) return res.status(400).json({ error: 'Name required' });
@@ -643,6 +795,7 @@ app.post('/api/menu', async (req, res) => {
     const maxOrder = existing.length > 0 ? Math.max(...existing.map(i => i.sort_order || 0)) : 0;
     const data = { name: name.trim(), icon: icon || '🍽️', price: parseFloat(price) || 0, available: available !== undefined ? (available ? 1 : 0) : 1, sort_order: maxOrder + 1 };
     const newId = await addDocData(C.menuItems, data);
+    await req.audit(ACTIONS.MENU_CREATED, 'menu_items', newId, null, data);
     res.json({ success: true, item: { id: newId, ...data } });
   } catch (err) {
     console.error('Menu add error:', err);
@@ -650,7 +803,7 @@ app.post('/api/menu', async (req, res) => {
   }
 });
 
-app.put('/api/menu/:id', async (req, res) => {
+app.put('/api/menu/:id', validateMenu, async (req, res) => {
   try {
     const { id } = req.params;
     const existing = await getDocById(C.menuItems, id);
@@ -663,6 +816,7 @@ app.put('/api/menu/:id', async (req, res) => {
       sort_order: req.body.sort_order !== undefined ? parseInt(req.body.sort_order) : existing.sort_order,
     };
     await updateDocData(C.menuItems, id, updates);
+    await req.audit(ACTIONS.MENU_UPDATED, 'menu_items', id, existing, updates);
     res.json({ success: true, item: { id, ...updates } });
   } catch (err) {
     console.error('Menu update error:', err);
@@ -675,6 +829,7 @@ app.delete('/api/menu/:id', async (req, res) => {
     const existing = await getDocById(C.menuItems, req.params.id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
     await deleteDocData(C.menuItems, req.params.id);
+    await req.audit(ACTIONS.MENU_DELETED, 'menu_items', req.params.id, existing, null);
     res.json({ success: true });
   } catch (err) {
     console.error('Menu delete error:', err);
@@ -691,16 +846,66 @@ app.get('/api/orders/stream', (req, res) => {
   req.on('close', () => { sseClients = sseClients.filter(c => c.id !== client.id); });
 });
 
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', orderLimiter, validateOrder, async (req, res) => {
   try {
     const { employeeName, phoneNumber, department, items, totalAmount } = req.body;
-    if (!employeeName || !items || items.length === 0) return res.status(400).json({ error: 'Missing fields' });
+
+    // ─── DUPLICATE ORDER PROTECTION ──────────────────────────
+    // Check if same employee already placed an order today
+    const todayDate = new Date().toISOString().substring(0, 10);
+    const existingOrders = await getAll(C.onlineOrders);
+    const todayOrders = existingOrders.filter(o =>
+      o.created_at && o.created_at.startsWith(todayDate) &&
+      (o.employee_name || '').toLowerCase() === employeeName.toLowerCase() &&
+      o.status !== 'cancelled'
+    );
+    if (todayOrders.length > 0) {
+      return res.status(409).json({
+        error: 'duplicate_order',
+        message: `You have already placed an order today (${todayOrders[0].order_id}). Only one order per employee per day is allowed.`,
+      });
+    }
+
+    // ─── BOOKING TIME VALIDATION (server-side) ──────────────
+    const bookingSettings = await getDocById(C.bookingSettings, '1');
+    if (bookingSettings && !bookingSettings.booking_open) {
+      return res.status(403).json({ error: 'Booking is currently closed' });
+    }
+    if (bookingSettings && bookingSettings.start_time && bookingSettings.end_time) {
+      const now2 = new Date();
+      const curMin = now2.getHours() * 60 + now2.getMinutes();
+      const [sh, sm] = (bookingSettings.start_time || '08:00').split(':').map(Number);
+      const [eh, em] = (bookingSettings.end_time || '20:00').split(':').map(Number);
+      if (curMin < sh * 60 + sm || curMin >= eh * 60 + em) {
+        return res.status(403).json({ error: 'Ordering is only allowed between ' + bookingSettings.start_time + ' and ' + bookingSettings.end_time });
+      }
+    }
+
+    // ─── VALIDATE MENU ITEMS against actual menu ────────────
+    const menuItems = await getAll(C.menuItems, [{ field: 'available', op: '==', value: 1 }]);
+    const validMenuIds = new Set(menuItems.map(m => String(m.id)));
+    const validMenuNames = new Set(menuItems.map(m => (m.name || '').toLowerCase()));
+    for (const item of items) {
+      if (item.id && !validMenuIds.has(String(item.id)) && !validMenuNames.has((item.name || '').toLowerCase())) {
+        return res.status(400).json({ error: `Invalid menu item: ${item.name}` });
+      }
+      // Ensure price matches server-side
+      const serverItem = menuItems.find(m => String(m.id) === String(item.id) || (m.name || '').toLowerCase() === (item.name || '').toLowerCase());
+      if (serverItem) {
+        item.price = serverItem.price; // Use server price, not client-submitted price
+      }
+    }
+
     const now = new Date();
     const orderId = `ORD-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
     const createdAt = nowStr();
+
+    // Recalculate total on server-side
+    const serverTotal = items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+
     const data = {
       order_id: orderId, employee_name: employeeName, phone_number: phoneNumber || '',
-      department: department || '', items: JSON.stringify(items), total_amount: totalAmount || 0,
+      department: department || '', items: JSON.stringify(items), total_amount: serverTotal,
       status: 'pending', created_at: createdAt, updated_at: createdAt,
     };
     await setDocData(C.onlineOrders, orderId, data);
@@ -712,6 +917,30 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// ─── Public Order Tracking (by order ID) ──────────────────
+app.get('/api/orders/track/:orderId', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    if (!orderId || !orderId.startsWith('ORD-')) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+    const order = await getDocById(C.onlineOrders, orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    try { order.items = JSON.parse(order.items); } catch (e) { order.items = []; }
+    // Return only safe fields (no phone numbers or other employees' data)
+    res.json({
+      order_id: order.order_id,
+      status: order.status,
+      items: order.items,
+      total_amount: order.total_amount,
+      created_at: order.created_at,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: List all orders (requires auth) ────────────────
 app.get('/api/orders', async (req, res) => {
   try {
     const { date, status } = req.query;
@@ -730,10 +959,12 @@ app.put('/api/orders/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const valid = ['pending', 'accepted', 'preparing', 'ready', 'completed', 'cancelled'];
-  if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid' });
+  if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
   const order = await getDocById(C.onlineOrders, id);
   if (!order) return res.status(404).json({ error: 'Not found' });
+  const prevStatus = order.status;
   await updateDocData(C.onlineOrders, id, { status, updated_at: nowStr() });
+  await req.audit(status === 'cancelled' ? ACTIONS.ORDER_CANCELLED : ACTIONS.ORDER_STATUS_CHANGED, 'online_orders', id, { status: prevStatus }, { status });
   order.status = status;
   try { order.items = JSON.parse(order.items); } catch (e) { order.items = []; }
   sendSSE('status-update', order);
@@ -763,20 +994,25 @@ app.get('/api/complaints', async (req, res) => {
   res.json(rows);
 });
 
-app.post('/api/complaints', async (req, res) => {
-  const { employee_name, phone_number, department, category, subject, description } = req.body;
+app.post('/api/complaints', validateComplaint, async (req, res) => {
+  const { employee_name, employee_number, phone_number, department, category, subject, description, rating } = req.body;
   if (!subject || !description) return res.status(400).json({ error: 'Subject and description required' });
   const now = nowStr();
   const data = {
-    employee_name: employee_name || '', phone_number: phone_number || '', department: department || '',
-    category: category || 'general', subject, description, status: 'open', admin_reply: '',
+    employee_name: employee_name || '',
+    employee_number: parseInt(employee_number) || 0,
+    phone_number: phone_number || '', department: department || '',
+    category: category || 'general',
+    rating: Math.max(0, Math.min(5, parseInt(rating) || 0)),
+    subject, description, status: 'open', admin_reply: '',
     created_at: now, updated_at: now,
   };
   const newId = await addDocData(C.complaints, data);
+  await req.audit(ACTIONS.COMPLAINT_CREATED, 'complaints', newId, null, { subject, employee_name, rating });
   res.json({ success: true, complaint: { id: newId, ...data } });
 });
 
-app.put('/api/complaints/:id', async (req, res) => {
+app.put('/api/complaints/:id', validateComplaint, async (req, res) => {
   const existing = await getDocById(C.complaints, req.params.id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const updates = {
@@ -785,6 +1021,7 @@ app.put('/api/complaints/:id', async (req, res) => {
     updated_at: nowStr(),
   };
   await updateDocData(C.complaints, req.params.id, updates);
+  await req.audit(ACTIONS.COMPLAINT_REPLIED, 'complaints', req.params.id, existing, updates);
   res.json({ success: true, complaint: { id: req.params.id, ...existing, ...updates } });
 });
 
@@ -795,12 +1032,14 @@ app.get('/api/booking-settings', async (_req, res) => {
 });
 
 app.post('/api/booking-settings', async (req, res) => {
+  const prevSettings = await getDocById(C.bookingSettings, '1');
   const { booking_open, start_time, end_time, closed_message, timer_end } = req.body;
   await setDocData(C.bookingSettings, '1', {
     booking_open: booking_open ? 1 : 0, start_time: start_time || '08:00',
     end_time: end_time || '20:00', closed_message: closed_message || '',
     timer_end: timer_end || null, updated_at: nowStr(),
   });
+  await req.audit(ACTIONS.BOOKING_SETTINGS_CHANGED, 'booking_settings', '1', prevSettings, { booking_open, start_time, end_time });
   const row = await getDocById(C.bookingSettings, '1');
   res.json({ success: true, settings: row });
 });
@@ -863,7 +1102,7 @@ app.get('/api/serial-register/stats/all', async (_req, res) => {
 
 app.get('/api/serial-register/lookup/:serialNo', async (req, res) => {
   const sn = parseInt(req.params.serialNo, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+  if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   const row = await getDocById(C.serialRegister, String(sn));
   if (!row) return res.status(404).json({ error: 'Not found' });
   res.json(row);
@@ -871,16 +1110,16 @@ app.get('/api/serial-register/lookup/:serialNo', async (req, res) => {
 
 app.get('/api/serial-register/:serialNo', async (req, res) => {
   const sn = parseInt(req.params.serialNo, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+  if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   const row = await getDocById(C.serialRegister, String(sn));
   if (!row) return res.status(404).json({ error: 'Not found' });
   res.json(row);
 });
 
-app.post('/api/serial-register', async (req, res) => {
+app.post('/api/serial-register', validateSerialRegister, async (req, res) => {
   const { serial_no, employee_name, phone_number, department, joining_date } = req.body;
   const sn = parseInt(serial_no, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+  if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   if (!employee_name || !employee_name.trim()) return res.status(400).json({ error: 'Name required' });
   const existing = await getDocById(C.serialRegister, String(sn));
   if (!existing) return res.status(404).json({ error: 'Not found' });
@@ -892,18 +1131,19 @@ app.post('/api/serial-register', async (req, res) => {
     department: department || '', status: 'Active', joining_date: jd, leaving_date: '', current_employee: employee_name.trim(),
   };
   await setDocData(C.serialRegister, String(sn), data);
+  await req.audit(ACTIONS.SERIAL_ASSIGNED, 'serial_register', String(sn), existing, data);
   res.json({ success: true, data });
 });
 
 app.post('/api/serial-register/:serialNo/leave', async (req, res) => {
   try {
     const sn = parseInt(req.params.serialNo, 10);
-    if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+    if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
     const existing = await getDocById(C.serialRegister, String(sn));
     if (!existing) return res.status(404).json({ error: 'Not found' });
     if (existing.status !== 'Active') return res.status(400).json({ error: 'No active employee' });
     const ld = req.body.leaving_date || new Date().toISOString().substring(0, 10);
-    // Save to history first
+    // Save to history first (employee history is NEVER lost)
     try {
       await addDocData(C.serialHistory, {
         serial_no: sn, employee_name: existing.employee_name || '', phone_number: existing.phone_number || '',
@@ -911,8 +1151,10 @@ app.post('/api/serial-register/:serialNo/leave', async (req, res) => {
         status: 'Left Company', closed_at: nowStr(),
       });
     } catch (histErr) { console.error('History save error:', histErr.message); }
-    // Reset to Vacant
+    // Reset to Vacant (but keep record of who was here in the register too)
+    const prevData = { ...existing };
     await setDocData(C.serialRegister, String(sn), { serial_no: sn, employee_name: '', phone_number: '', department: '', status: 'Vacant', joining_date: '', leaving_date: '', current_employee: '' });
+    await req.audit(ACTIONS.SERIAL_LEFT, 'serial_register', String(sn), prevData, { status: 'Vacant', leaving_date: ld });
     res.json({ success: true, data: { serial_no: sn, status: 'Vacant' } });
   } catch (err) {
     console.error('Leave error:', err);
@@ -920,13 +1162,14 @@ app.post('/api/serial-register/:serialNo/leave', async (req, res) => {
   }
 });
 
-app.post('/api/serial-register/:serialNo/new-record', async (req, res) => {
+app.post('/api/serial-register/:serialNo/new-record', validateSerialRegister, async (req, res) => {
   const sn = parseInt(req.params.serialNo, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+  if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   if (!req.body.employee_name || !req.body.employee_name.trim()) return res.status(400).json({ error: 'Name required' });
   const existing = await getDocById(C.serialRegister, String(sn));
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const jd = req.body.joining_date || new Date().toISOString().substring(0, 10);
+  // CRITICAL: Save previous employee to history before reassignment
   if (existing.status === 'Active' && existing.current_employee && existing.current_employee.trim()) {
     await addDocData(C.serialHistory, {
       serial_no: sn, employee_name: existing.employee_name || '', phone_number: existing.phone_number || '',
@@ -934,24 +1177,26 @@ app.post('/api/serial-register/:serialNo/new-record', async (req, res) => {
       status: 'Left Company', closed_at: nowStr(),
     });
   }
+  const prevData = { ...existing };
   const data = {
     serial_no: sn, employee_name: req.body.employee_name.trim(), phone_number: req.body.phone_number || '',
     department: req.body.department || '', status: 'Active', joining_date: jd, leaving_date: '', current_employee: req.body.employee_name.trim(),
   };
   await setDocData(C.serialRegister, String(sn), data);
+  await req.audit(ACTIONS.SERIAL_REASSIGNED, 'serial_register', String(sn), prevData, data);
   res.json({ success: true, data });
 });
 
 app.get('/api/serial-register/:serialNo/history', async (req, res) => {
   const sn = parseInt(req.params.serialNo, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+  if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   const rows = await getAll(C.serialHistory, [{ field: 'serial_no', op: '==', value: sn }], 'closed_at', false);
   res.json(rows);
 });
 
 app.put('/api/serial-register/:serialNo', async (req, res) => {
   const sn = parseInt(req.params.serialNo, 10);
-  if (!sn || sn < 1 || sn > 500) return res.status(400).json({ error: 'Invalid' });
+  if (!sn || sn < 1 || sn > 1000) return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   const existing = await getDocById(C.serialRegister, String(sn));
   if (!existing) return res.status(404).json({ error: 'Not found' });
   const updates = {};
@@ -1022,9 +1267,90 @@ app.delete('/api/entry-menu/:id', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
+//  ADMIN USER MANAGEMENT (Developer only)
+// ═══════════════════════════════════════════════════════════════════
+
+// List all admin users
+app.get('/api/admin/users', requireAuth, requirePermission('developer:manage'), async (req, res) => {
+  try {
+    const { getFirestore } = require('firebase-admin/firestore');
+    const adminDb = getFirestore();
+    const snap = await adminDb.collection('admin_users').get();
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create/update admin user
+app.post('/api/admin/users', requireAuth, requirePermission('developer:manage'), async (req, res) => {
+  try {
+    const { uid, email, name, role, active } = req.body;
+    if (!uid || !email) return res.status(400).json({ error: 'UID and email required' });
+    const validRoles = ['DEVELOPER', 'SUPER_ADMIN', 'ADMIN', 'CANTEEN_STAFF'];
+    if (role && !validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+    const { getFirestore } = require('firebase-admin/firestore');
+    const adminDb = getFirestore();
+
+    await adminDb.collection('admin_users').doc(uid).set({
+      email, name: name || '', role: role || 'ADMIN', active: active !== false,
+      updated_at: nowStr(),
+    }, { merge: true });
+
+    await req.audit(ACTIONS.EMPLOYEE_UPDATED, 'admin_users', uid, null, { email, role });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete admin user
+app.delete('/api/admin/users/:uid', requireAuth, requirePermission('developer:manage'), async (req, res) => {
+  try {
+    const { uid } = req.params;
+    if (!uid) return res.status(400).json({ error: 'UID required' });
+    // Prevent deleting yourself
+    if (uid === req.user.uid) return res.status(400).json({ error: 'Cannot remove your own account' });
+
+    const { getFirestore } = require('firebase-admin/firestore');
+    const adminDb = getFirestore();
+    await adminDb.collection('admin_users').doc(uid).delete();
+
+    await req.audit(ACTIONS.EMPLOYEE_DELETED, 'admin_users', uid, null, null);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get audit logs
+app.get('/api/admin/audit-logs', requireAuth, requirePermission('developer:manage'), async (req, res) => {
+  try {
+    const { getFirestore } = require('firebase-admin/firestore');
+    const adminDb = getFirestore();
+    const snap = await adminDb.collection('audit_logs').orderBy('timestamp', 'desc').limit(100).get();
+    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 //  SERVE PAGES
 // ═══════════════════════════════════════════════════════════════════
 const PUBLIC = path.join(__dirname, '..', 'public');
+
+// ─── Auth page ──────────────────────────────────────────────
+app.get('/auth', (_req, res) => res.sendFile(path.join(PUBLIC, 'auth.html')));
+
+// ─── Server-side auth verification endpoint ─────────────────
+app.get('/api/auth/verify', requireAuth, (req, res) => {
+  res.json({ valid: true, user: { uid: req.user.uid, email: req.user.email, role: req.user.role, name: req.user.name } });
+});
+
 app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC, 'entry.html')));
 app.get('/payment', (_req, res) => res.sendFile(path.join(PUBLIC, 'payment.html')));
 app.get('/records', (_req, res) => res.sendFile(path.join(PUBLIC, 'records.html')));
@@ -1035,6 +1361,8 @@ app.get('/online-orders', (_req, res) => res.sendFile(path.join(PUBLIC, 'online-
 app.get('/user-ordering', (_req, res) => res.sendFile(path.join(PUBLIC, 'user-ordering.html')));
 app.get('/serial-register', (_req, res) => res.sendFile(path.join(PUBLIC, 'serial-register.html')));
 app.get('/complaints', (_req, res) => res.sendFile(path.join(PUBLIC, 'complaints.html')));
+app.get('/feedback', (_req, res) => res.sendFile(path.join(PUBLIC, 'feedback.html')));
+app.get('/developer', (_req, res) => res.sendFile(path.join(PUBLIC, 'developer.html')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  VERCEL HANDLER + LOCAL DEV
@@ -1044,6 +1372,8 @@ const handler = async (req, res) => {
   if (!initialized) {
     try { await loadPrices(); } catch (e) { console.log('Seed prices:', e.message); }
     try { await seedDefaults(); } catch (e) { console.log('Seed defaults:', e.message); }
+    // Run initial cleanup of old data (older than 1 year)
+    cleanupOldData().catch(() => {});
     initialized = true;
   }
   return app(req, res);
@@ -1051,6 +1381,8 @@ const handler = async (req, res) => {
 
 if (require.main === module) {
   loadPrices().then(() => seedDefaults()).then(() => {
+    // Run initial cleanup of old data (older than 1 year)
+    cleanupOldData().catch(() => {});
     app.listen(PORT, '0.0.0.0', () => console.log(`🔥 Server running on http://localhost:${PORT}`));
   }).catch(err => console.error('Init error:', err));
 }

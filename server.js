@@ -13,6 +13,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Multer for Excel uploads (stored in memory)
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// Local time helper (avoids UTC timezone mismatch)
+function nowStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const h = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d} ${h}:${min}:${s}`;
+}
+
 // ─── DATABASE SETUP ───────────────────────────────────────────────
 const db = new Database(path.join(__dirname, 'canteen.db'));
 db.pragma('journal_mode = WAL');
@@ -343,8 +355,8 @@ app.post('/api/password/verify', (req, res) => {
 // ─── API: Employee names ──────────────────────────────────────────
 app.get('/api/employees/:empNo', (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
   const row = db.prepare('SELECT * FROM employees WHERE employee_number = ?').get(empNo);
   if (row) {
@@ -401,8 +413,8 @@ app.post('/api/employees/upload', upload.single('excelFile'), (req, res) => {
 // ─── API: Get or create today's entry for employee ────────────────
 app.get('/api/entry/:empNo', (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   const now = new Date();
@@ -440,8 +452,8 @@ app.get('/api/entry/:empNo', (req, res) => {
 app.get('/api/entry/:empNo/:date', (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
   const date = req.params.date; // YYYY-MM-DD
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Invalid date format (YYYY-MM-DD)' });
@@ -486,8 +498,8 @@ app.post('/api/entry', (req, res) => {
     other_amount,
   } = req.body;
 
-  if (!employee_number || employee_number < 1 || employee_number > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!employee_number || employee_number < 1 || employee_number > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   let entryDate, currentMonth, currentYear;
@@ -551,8 +563,8 @@ app.post('/api/entry', (req, res) => {
 app.delete('/api/entry/:empNo/:date', (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
   const date = req.params.date;
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'Invalid date format' });
@@ -572,8 +584,8 @@ app.delete('/api/entry/:empNo/:date', (req, res) => {
 // ─── API: Get employee history (monthly, half-yearly, yearly) ─────
 app.get('/api/history/:empNo', (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   const now = new Date();
@@ -607,8 +619,8 @@ app.get('/api/history/:empNo/:period/:year/:month', (req, res) => {
   const year = parseInt(req.params.year, 10);
   const month = parseInt(req.params.month, 10) || null;
 
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   let query, params, startDate, endDate, label;
@@ -710,8 +722,8 @@ app.get('/api/records/gross/:year', (req, res) => {
 app.get('/api/records/:empNo/:year', (req, res) => {
   const empNo = parseInt(req.params.empNo, 10);
   const year = parseInt(req.params.year, 10);
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   const monthlyData = db.prepare(
@@ -735,8 +747,8 @@ app.get('/api/payments/:empNo/:year/:month', (req, res) => {
   const year = parseInt(req.params.year, 10);
   const month = parseInt(req.params.month, 10);
 
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   // Process carry-forward from previous month
@@ -787,8 +799,8 @@ app.get('/api/payments/:empNo/:year/:month', (req, res) => {
 app.post('/api/payments', (req, res) => {
   const { employee_number, month, year, amount_paid, status, note } = req.body;
 
-  if (!employee_number || employee_number < 1 || employee_number > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!employee_number || employee_number < 1 || employee_number > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
   if (!month || !year) {
     return res.status(400).json({ error: 'Month and year required' });
@@ -954,8 +966,8 @@ app.get('/api/export/:empNo', (req, res) => {
   const month = parseInt(req.query.month, 10) || (new Date().getMonth() + 1);
   const half = parseInt(req.query.half, 10) || 1;
 
-  if (!empNo || empNo < 1 || empNo > 300) {
-    return res.status(400).json({ error: 'Invalid employee number (1-300)' });
+  if (!empNo || empNo < 1 || empNo > 1000) {
+    return res.status(400).json({ error: 'Invalid employee number (1-1000)' });
   }
 
   let query, params, title;
@@ -1079,7 +1091,7 @@ app.post('/api/orders', (req, res) => {
 
   const now = new Date();
   const orderId = `ORD-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
-  const createdAt = now.toISOString().replace('T', ' ').substring(0, 19);
+  const createdAt = nowStr();
 
   try {
     db.prepare(`
@@ -1315,7 +1327,7 @@ const serialCount = db.prepare('SELECT COUNT(*) as count FROM serial_register').
 if (serialCount.count === 0) {
   const insertSerial = db.prepare('INSERT OR IGNORE INTO serial_register (serial_no, status) VALUES (?, ?)');
   const seedTx = db.transaction(() => {
-    for (let i = 1; i <= 500; i++) {
+    for (let i = 1; i <= 1000; i++) {
       insertSerial.run(i, 'Vacant');
     }
   });
@@ -1378,7 +1390,7 @@ app.get('/api/serial-register/stats/all', (_req, res) => {
 // ─── API: Get single serial register entry ──────────────────
 app.get('/api/serial-register/:serialNo', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
-  if (!serialNo || serialNo < 1 || serialNo > 500) {
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
     return res.status(400).json({ error: 'Invalid serial number (1-500)' });
   }
   const row = db.prepare('SELECT * FROM serial_register WHERE serial_no = ?').get(serialNo);
@@ -1391,7 +1403,7 @@ app.post('/api/serial-register', (req, res) => {
   const { serial_no, employee_name, phone_number, department, joining_date } = req.body;
   const serialNo = parseInt(serial_no, 10);
 
-  if (!serialNo || serialNo < 1 || serialNo > 500) {
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
     return res.status(400).json({ error: 'Invalid serial number (1-500)' });
   }
   if (!employee_name || employee_name.trim() === '') {
@@ -1429,7 +1441,7 @@ app.post('/api/serial-register/:serialNo/leave', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
   const { leaving_date } = req.body;
 
-  if (!serialNo || serialNo < 1 || serialNo > 500) {
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
     return res.status(400).json({ error: 'Invalid serial number (1-500)' });
   }
 
@@ -1462,7 +1474,7 @@ app.post('/api/serial-register/:serialNo/new-record', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
   const { employee_name, phone_number, department, joining_date } = req.body;
 
-  if (!serialNo || serialNo < 1 || serialNo > 500) {
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
     return res.status(400).json({ error: 'Invalid serial number (1-500)' });
   }
   if (!employee_name || employee_name.trim() === '') {
@@ -1498,7 +1510,7 @@ app.post('/api/serial-register/:serialNo/new-record', (req, res) => {
 // ─── API: Get history for a serial number ────────────────────
 app.get('/api/serial-register/:serialNo/history', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
-  if (!serialNo || serialNo < 1 || serialNo > 500) {
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
     return res.status(400).json({ error: 'Invalid serial number (1-500)' });
   }
 
@@ -1511,7 +1523,7 @@ app.put('/api/serial-register/:serialNo', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
   const { employee_name, phone_number, department } = req.body;
 
-  if (!serialNo || serialNo < 1 || serialNo > 500) {
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
     return res.status(400).json({ error: 'Invalid serial number (1-500)' });
   }
 
@@ -1583,6 +1595,14 @@ app.get('/complaints', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'complaints.html'));
 });
 
+app.get('/feedback', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'feedback.html'));
+});
+
+app.get('/developer', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'developer.html'));
+});
+
 // ─── Complaints APIs ───────────────────────────────────────
 app.get('/api/complaints', (req, res) => {
   const { status, category } = req.query;
@@ -1600,7 +1620,7 @@ app.post('/api/complaints', (req, res) => {
   const { employee_name, phone_number, department, category, subject, description } = req.body;
   if (!subject || !description) return res.status(400).json({ error: 'Subject and description required' });
   try {
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const now = nowStr();
     const r = db.prepare("INSERT INTO complaints (employee_name, phone_number, department, category, subject, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)").run(employee_name || '', phone_number || '', department || '', category || 'general', subject, description, now, now);
     res.json({ success: true, complaint: db.prepare('SELECT * FROM complaints WHERE id = ?').get(r.lastInsertRowid) });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1612,7 +1632,7 @@ app.put('/api/complaints/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM complaints WHERE id = ?').get(id);
     if (!existing) return res.status(404).json({ error: 'Not found' });
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const now = nowStr();
     db.prepare('UPDATE complaints SET status = ?, admin_reply = ?, updated_at = ? WHERE id = ?').run(status || existing.status, admin_reply !== undefined ? admin_reply : existing.admin_reply, now, id);
     res.json({ success: true, complaint: db.prepare('SELECT * FROM complaints WHERE id = ?').get(id) });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1626,7 +1646,7 @@ app.get('/api/booking-settings', (_req, res) => {
 app.post('/api/booking-settings', (req, res) => {
   const { booking_open, start_time, end_time, closed_message } = req.body;
   try {
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const now = nowStr();
     db.prepare('UPDATE booking_settings SET booking_open = ?, start_time = ?, end_time = ?, closed_message = ?, updated_at = ? WHERE id = 1').run(booking_open ? 1 : 0, start_time || '08:00', end_time || '20:00', closed_message || '', now);
     res.json({ success: true, settings: db.prepare('SELECT * FROM booking_settings WHERE id = 1').get() });
   } catch (err) { res.status(500).json({ error: err.message }); }

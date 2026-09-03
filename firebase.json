@@ -1,0 +1,75 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "node_modules/",
+      "api/",
+      "security/",
+      "server.js",
+      "*.db",
+      "*.db-shm",
+      "*.db-wal",
+      ".env",
+      "SECURITY.md",
+      "firestore.rules",
+      "firestore.indexes.json",
+      "supabase-schema.sql",
+      "package.json",
+      "package-lock.json",
+      "vercel.json"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "X-XSS-Protection", "value": "1; mode=block" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+          { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
+        ]
+      },
+      {
+        "source": "/api/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "function": {
+          "functionName": "api",
+          "region": "us-central1"
+        }
+      },
+      { "source": "/payment", "destination": "/payment.html" },
+      { "source": "/records", "destination": "/records.html" },
+      { "source": "/settings", "destination": "/settings.html" },
+      { "source": "/pending", "destination": "/pending.html" },
+      { "source": "/online-orders", "destination": "/online-orders.html" },
+      { "source": "/user-ordering", "destination": "/user-ordering.html" },
+      { "source": "/serial-register", "destination": "/serial-register.html" },
+      { "source": "/complaints", "destination": "/complaints.html" },
+      { "source": "/feedback", "destination": "/feedback.html" },
+      { "source": "/developer", "destination": "/developer.html" },
+      { "source": "/auth", "destination": "/auth.html" }
+    ],
+    "redirects": [
+      {
+        "source": "/entry",
+        "destination": "/",
+        "type": 301
+      }
+    ],
+    "cleanUrls": true
+  }
+}

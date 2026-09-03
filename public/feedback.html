@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Customer Feedback - Digital Canteen</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Feedback" />
+  <link rel="apple-touch-icon" href="/logo.svg" />
+  <meta name="description" content="Share your canteen experience - rate and feedback" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#f0f2f5;--card:#fff;--primary:#2563eb;--primary-dark:#1d4ed8;--accent:#059669;--accent-dark:#047857;--danger:#dc2626;--warning:#d97706;--text:#1e293b;--text-light:#64748b;--border:#e2e8f0;--radius:12px}
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px;overflow-x:hidden}
+
+    .app-header{background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);color:#fff;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(37,99,235,0.25);position:sticky;top:0;z-index:100}
+    .app-header h1{font-size:1.3rem;font-weight:700}
+    .app-header p{font-size:0.85rem;opacity:0.85;margin-top:4px}
+
+    .steps-bar{display:flex;justify-content:center;gap:0;padding:14px 20px;background:#fff;border-bottom:2px solid var(--border)}
+    .step{display:flex;align-items:center;gap:6px;font-size:0.75rem;font-weight:700;color:var(--text-light);padding:6px 12px;border-radius:20px;transition:all 0.3s}
+    .step.active{background:var(--primary);color:#fff}
+    .step.done{background:var(--accent);color:#fff}
+    .step-num{width:22px;height:22px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800}
+    .step.active .step-num,.step.done .step-num{background:rgba(255,255,255,0.3)}
+
+    .app-section{padding:16px;max-width:600px;margin:0 auto}
+    .section-title{font-size:1.2rem;font-weight:800;margin-bottom:14px}
+
+    /* ─── FORM ─── */
+    .emp-form{display:flex;flex-direction:column;gap:14px}
+    .form-group{display:flex;flex-direction:column;gap:4px}
+    .form-group label{font-size:0.8rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px}
+    .form-group input,.form-group select,.form-group textarea{padding:14px 16px;font-size:1rem;font-weight:600;border:2px solid var(--border);border-radius:10px;outline:none;width:100%;background:#fff;transition:border-color 0.2s}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary)}
+    .form-group textarea{resize:vertical;min-height:80px;font-family:inherit}
+
+    /* ─── STAR RATING ─── */
+    .star-rating-container{background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-top:14px}
+    .star-rating-label{font-size:1rem;font-weight:700;margin-bottom:12px;color:var(--text)}
+    .star-rating{display:flex;justify-content:center;gap:8px;margin-bottom:10px}
+    .star{font-size:2.5rem;cursor:pointer;transition:transform 0.15s,color 0.15s;color:var(--border)}
+    .star:hover,.star.active{color:#f59e0b;transform:scale(1.15)}
+    .star-text{font-size:0.85rem;color:var(--text-light);font-weight:600;min-height:20px}
+    .star-text[data-rating="1"]{color:#dc2626}
+    .star-text[data-rating="2"]{color:#d97706}
+    .star-text[data-rating="3"]{color:#ca8a04}
+    .star-text[data-rating="4"]{color:#65a30d}
+    .star-text[data-rating="5"]{color:#059669}
+
+    /* ─── CATEGORY CHIPS ─── */
+    .category-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+    .cat-chip{padding:14px 12px;border:2px solid var(--border);border-radius:10px;text-align:center;cursor:pointer;font-weight:700;font-size:0.85rem;transition:all 0.2s;background:#fff}
+    .cat-chip:hover{border-color:var(--primary);background:#eff6ff}
+    .cat-chip.selected{border-color:var(--primary);background:var(--primary);color:#fff}
+    .cat-chip .cat-icon{font-size:1.4rem;display:block;margin-bottom:4px}
+
+    /* ─── BOTTOM BAR ─── */
+    .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--border);padding:14px 20px;display:flex;gap:12px;z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,0.08)}
+    .bottom-bar .btn{flex:1;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:10px;cursor:pointer;text-align:center}
+    .btn-submit{background:var(--accent);color:#fff}
+    .btn-submit:disabled{opacity:0.5;cursor:not-allowed}
+    .btn-back{background:var(--border);color:var(--text)}
+
+    /* ─── CONFIRMATION ─── */
+    .confirmation-card{background:#fff;border:2px solid var(--accent);border-radius:var(--radius);padding:24px;text-align:center}
+    .confirmation-card .big-icon{font-size:4rem;margin-bottom:12px}
+    .confirmation-card h2{font-size:1.3rem;color:var(--accent);margin-bottom:8px}
+    .order-details{text-align:left;background:#f8fafc;border-radius:8px;padding:14px;margin:14px 0}
+    .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:0.9rem}
+    .detail-row span:first-child{color:var(--text-light)}
+    .detail-row span:last-child{font-weight:700}
+    .btn-new{margin-top:20px;background:var(--primary);color:#fff;border:none;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer}
+
+    .hidden{display:none!important}
+
+    #toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(120px);background:#059669;color:#fff;padding:14px 28px;border-radius:10px;font-size:1rem;font-weight:700;box-shadow:0 4px 20px rgba(5,150,105,0.35);transition:transform 0.35s ease;z-index:999;pointer-events:none;white-space:nowrap}
+    #toast.show{transform:translateX(-50%) translateY(0)}
+
+    .error-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:12px;display:none}
+    .error-box.show{display:block}
+
+    @media(max-width:480px){.app-header{padding:16px 14px}.app-header h1{font-size:1.1rem}.steps-bar{padding:10px 12px;gap:4px}.step{padding:5px 8px;font-size:0.7rem}.app-section{padding:12px}.category-grid{grid-template-columns:1fr 1fr;gap:8px}.cat-chip{padding:12px 8px;font-size:0.8rem}.star{font-size:2rem}.bottom-bar{padding:10px 14px}.bottom-bar .btn{padding:12px;font-size:0.9rem}}
+    @media(min-width:640px){.category-grid{grid-template-columns:repeat(3,1fr)}}
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <h1>⭐ Customer Feedback</h1>
+    <p>Help us improve your canteen experience</p>
+  </div>
+
+  <!-- STEPS -->
+  <div class="steps-bar">
+    <div class="step active" id="step1Indicator"><span class="step-num">1</span> Your Info</div>
+    <div class="step" id="step2Indicator"><span class="step-num">2</span> Rating</div>
+    <div class="step" id="step3Indicator"><span class="step-num">3</span> Feedback</div>
+  </div>
+
+  <!-- ═══════════ STEP 1: EMPLOYEE DETAILS ═══════════ -->
+  <div class="app-section" id="step1Section">
+    <div class="section-title">👤 Your Details</div>
+    <p style="color:var(--text-light);font-size:0.85rem;margin-bottom:14px;">Please fill in your details before submitting feedback.</p>
+
+    <div class="error-box" id="step1Error"></div>
+
+    <div class="emp-form">
+      <div class="form-group">
+        <label>Employee ID / Serial Number *</label>
+        <input type="number" id="empId" placeholder="Enter your employee ID" min="1" max="1000" inputmode="numeric" />
+      </div>
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input type="text" id="empName" placeholder="Enter your full name" />
+      </div>
+      <div class="form-group">
+        <label>Phone Number *</label>
+        <input type="tel" id="empPhone" placeholder="Enter phone number" inputmode="tel" />
+      </div>
+      <div class="form-group">
+        <label>Department</label>
+        <select id="empDept">
+          <option value="">Select Department</option>
+          <option>Engineering</option><option>HR</option><option>Finance</option>
+          <option>Marketing</option><option>Operations</option><option>Sales</option>
+          <option>Admin</option><option>IT</option><option>Production</option>
+          <option>Quality</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ STEP 2: STAR RATING ═══════════ -->
+  <div class="app-section hidden" id="step2Section">
+    <div class="section-title">⭐ Rate Your Experience</div>
+    <p style="color:var(--text-light);font-size:0.85rem;margin-bottom:14px;">How would you rate your overall canteen experience?</p>
+
+    <div class="star-rating-container">
+      <div class="star-rating-label">Overall Rating</div>
+      <div class="star-rating" id="starRating">
+        <span class="star" data-value="1" onclick="setRating(1)">★</span>
+        <span class="star" data-value="2" onclick="setRating(2)">★</span>
+        <span class="star" data-value="3" onclick="setRating(3)">★</span>
+        <span class="star" data-value="4" onclick="setRating(4)">★</span>
+        <span class="star" data-value="5" onclick="setRating(5)">★</span>
+      </div>
+      <div class="star-text" id="starText" data-rating="0">Tap a star to rate</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ STEP 3: FEEDBACK CATEGORY + DESCRIPTION ═══════════ -->
+  <div class="app-section hidden" id="step3Section">
+    <div class="section-title">📝 Your Feedback</div>
+    <p style="color:var(--text-light);font-size:0.85rem;margin-bottom:14px;">Select a category and describe your experience.</p>
+
+    <div class="error-box" id="step3Error"></div>
+
+    <label style="font-size:0.8rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px;">Category *</label>
+    <div class="category-grid" id="categoryGrid">
+      <div class="cat-chip" data-cat="behaviour" onclick="selectCategory(this)">
+        <span class="cat-icon">🤝</span>Behaviour
+      </div>
+      <div class="cat-chip" data-cat="food_quality" onclick="selectCategory(this)">
+        <span class="cat-icon">🍔</span>Food Quality
+      </div>
+      <div class="cat-chip" data-cat="service" onclick="selectCategory(this)">
+        <span class="cat-icon">🛎️</span>Service
+      </div>
+      <div class="cat-chip" data-cat="cleanliness" onclick="selectCategory(this)">
+        <span class="cat-icon">🧹</span>Cleanliness
+      </div>
+      <div class="cat-chip" data-cat="pricing" onclick="selectCategory(this)">
+        <span class="cat-icon">💰</span>Pricing
+      </div>
+      <div class="cat-chip" data-cat="other" onclick="selectCategory(this)">
+        <span class="cat-icon">📌</span>Other
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="form-group">
+        <label>Subject *</label>
+        <input type="text" id="fbSubject" placeholder="Brief subject of your feedback" />
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <div class="form-group">
+        <label>Description / Additional Details *</label>
+        <textarea id="fbDescription" placeholder="Tell us more about your experience..." rows="4"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ CONFIRMATION ═══════════ -->
+  <div class="app-section hidden" id="confirmSection">
+    <div class="confirmation-card">
+      <div class="big-icon">✅</div>
+      <h2>Thank You for Your Feedback!</h2>
+      <p style="color:var(--text-light);margin-bottom:8px;">Your feedback has been submitted successfully.</p>
+      <div class="order-details" id="confirmDetails"></div>
+      <button class="btn-new" onclick="startNewFeedback()">⭐ Submit Another Feedback</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar" id="bottomBar">
+    <button class="btn btn-back" id="backBtn" onclick="goBack()" style="display:none;">← Back</button>
+    <button class="btn btn-submit" id="nextBtn" onclick="goNext()">Next →</button>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <script>
+    // ─── STATE ────────────────────────────────────────────────
+    let currentStep = 1;
+    let selectedRating = 0;
+    let selectedCategory = '';
+
+    const ratingLabels = {
+      1: '😞 Very Poor',
+      2: '😕 Poor',
+      3: '😐 Average',
+      4: '😊 Good',
+      5: '🤩 Excellent'
+    };
+
+    const categoryLabels = {
+      behaviour: '🤝 Behaviour',
+      food_quality: '🍔 Food Quality',
+      service: '🛎️ Service',
+      cleanliness: '🧹 Cleanliness',
+      pricing: '💰 Pricing',
+      other: '📌 Other'
+    };
+
+    // ─── STEP MANAGEMENT ──────────────────────────────────────
+    function updateSteps() {
+      ['step1Indicator','step2Indicator','step3Indicator'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        el.classList.remove('active','done');
+        if (i + 1 < currentStep) el.classList.add('done');
+        if (i + 1 === currentStep) el.classList.add('active');
+      });
+
+      document.getElementById('step1Section').classList.toggle('hidden', currentStep !== 1);
+      document.getElementById('step2Section').classList.toggle('hidden', currentStep !== 2);
+      document.getElementById('step3Section').classList.toggle('hidden', currentStep !== 3);
+      document.getElementById('confirmSection').classList.toggle('hidden', currentStep !== 4);
+
+      document.getElementById('backBtn').style.display = currentStep > 1 && currentStep < 4 ? '' : 'none';
+      const nextBtn = document.getElementById('nextBtn');
+      if (currentStep === 3) {
+        nextBtn.textContent = '📤 Submit Feedback';
+        nextBtn.classList.remove('btn-back');
+        nextBtn.classList.add('btn-submit');
+      } else if (currentStep === 4) {
+        document.getElementById('bottomBar').style.display = 'none';
+      } else {
+        nextBtn.textContent = 'Next →';
+        nextBtn.classList.remove('btn-back');
+        nextBtn.classList.add('btn-submit');
+        document.getElementById('bottomBar').style.display = '';
+      }
+    }
+
+    function goBack() {
+      if (currentStep > 1) { currentStep--; updateSteps(); window.scrollTo(0, 0); }
+    }
+
+    function goNext() {
+      if (currentStep === 1) {
+        // Validate employee details
+        const id = document.getElementById('empId').value.trim();
+        const name = document.getElementById('empName').value.trim();
+        const phone = document.getElementById('empPhone').value.trim();
+        const errBox = document.getElementById('step1Error');
+
+        if (!id || parseInt(id) < 1 || parseInt(id) > 1000) {
+          errBox.textContent = 'Please enter a valid Employee ID (1-1000).';
+          errBox.classList.add('show');
+          return;
+        }
+        if (!name) {
+          errBox.textContent = 'Please enter your full name.';
+          errBox.classList.add('show');
+          return;
+        }
+        if (!phone) {
+          errBox.textContent = 'Please enter your phone number.';
+          errBox.classList.add('show');
+          return;
+        }
+        errBox.classList.remove('show');
+        currentStep = 2;
+        updateSteps();
+        window.scrollTo(0, 0);
+      } else if (currentStep === 2) {
+        // Validate rating
+        if (selectedRating === 0) {
+          showToast('⚠️ Please select a star rating');
+          return;
+        }
+        currentStep = 3;
+        updateSteps();
+        window.scrollTo(0, 0);
+      } else if (currentStep === 3) {
+        // Validate category + description
+        const subject = document.getElementById('fbSubject').value.trim();
+        const desc = document.getElementById('fbDescription').value.trim();
+        const errBox = document.getElementById('step3Error');
+
+        if (!selectedCategory) {
+          errBox.textContent = 'Please select a feedback category.';
+          errBox.classList.add('show');
+          return;
+        }
+        if (!subject) {
+          errBox.textContent = 'Please enter a subject.';
+          errBox.classList.add('show');
+          return;
+        }
+        if (!desc) {
+          errBox.textContent = 'Please enter your feedback description.';
+          errBox.classList.add('show');
+          return;
+        }
+        errBox.classList.remove('show');
+        submitFeedback();
+      }
+    }
+
+    // ─── STAR RATING ─────────────────────────────────────────
+    function setRating(val) {
+      selectedRating = val;
+      const stars = document.querySelectorAll('#starRating .star');
+      stars.forEach(s => {
+        const v = parseInt(s.dataset.value);
+        s.classList.toggle('active', v <= val);
+      });
+      const text = document.getElementById('starText');
+      text.textContent = ratingLabels[val] || '';
+      text.dataset.rating = val;
+    }
+
+    // ─── CATEGORY ────────────────────────────────────────────
+    function selectCategory(el) {
+      document.querySelectorAll('#categoryGrid .cat-chip').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedCategory = el.dataset.cat;
+    }
+
+    // ─── SUBMIT ──────────────────────────────────────────────
+    async function submitFeedback() {
+      const btn = document.getElementById('nextBtn');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      const payload = {
+        employee_name: document.getElementById('empName').value.trim(),
+        employee_number: parseInt(document.getElementById('empId').value.trim()),
+        phone_number: document.getElementById('empPhone').value.trim(),
+        department: document.getElementById('empDept').value,
+        category: selectedCategory,
+        rating: selectedRating,
+        subject: document.getElementById('fbSubject').value.trim(),
+        description: document.getElementById('fbDescription').value.trim(),
+      };
+
+      try {
+        const res = await fetch('/api/complaints', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentStep = 4;
+          updateSteps();
+          document.getElementById('bottomBar').style.display = 'none';
+          const stars = '⭐'.repeat(selectedRating) + '☆'.repeat(5 - selectedRating);
+          document.getElementById('confirmDetails').innerHTML = `
+            <div class="detail-row"><span>Employee ID</span><span>${payload.employee_number}</span></div>
+            <div class="detail-row"><span>Name</span><span>${payload.employee_name}</span></div>
+            <div class="detail-row"><span>Rating</span><span>${stars} (${selectedRating}/5)</span></div>
+            <div class="detail-row"><span>Category</span><span>${categoryLabels[selectedCategory] || selectedCategory}</span></div>
+            <div class="detail-row"><span>Subject</span><span>${payload.subject}</span></div>
+          `;
+          showToast('✅ Feedback submitted!');
+          window.scrollTo(0, 0);
+        } else {
+          showToast('❌ ' + (data.error || 'Error submitting feedback'));
+        }
+      } catch (err) {
+        showToast('❌ Network error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📤 Submit Feedback';
+      }
+    }
+
+    // ─── NEW FEEDBACK ────────────────────────────────────────
+    function startNewFeedback() {
+      currentStep = 1;
+      selectedRating = 0;
+      selectedCategory = '';
+      document.getElementById('empId').value = '';
+      document.getElementById('empName').value = '';
+      document.getElementById('empPhone').value = '';
+      document.getElementById('empDept').value = '';
+      document.getElementById('fbSubject').value = '';
+      document.getElementById('fbDescription').value = '';
+      document.querySelectorAll('#starRating .star').forEach(s => s.classList.remove('active'));
+      document.getElementById('starText').textContent = 'Tap a star to rate';
+      document.getElementById('starText').dataset.rating = '0';
+      document.querySelectorAll('#categoryGrid .cat-chip').forEach(c => c.classList.remove('selected'));
+      document.getElementById('bottomBar').style.display = '';
+      updateSteps();
+      window.scrollTo(0, 0);
+    }
+
+    // ─── TOAST ───────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // ─── INIT ────────────────────────────────────────────────
+    updateSteps();
+  </script>
+</body>
+</html>

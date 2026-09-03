@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Digital Canteen Book – Complaints & Reports</title>
+  <title>Digital Canteen Book – Customer Feedback</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#667eea" />
@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Canteen Book" />
   <link rel="apple-touch-icon" href="/logo.svg" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <script src="/auth.js"></script>
 </head>
 <body>
   <!-- ═══════════════ HEADER ═══════════════ -->
@@ -24,7 +25,7 @@
       <a href="/pending" class="nav-btn">⏳ Pending</a>
       <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
       <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
-      <a href="/complaints" class="nav-btn active">📣 Complaints</a>
+      <a href="/complaints" class="nav-btn active">⭐ Customer Feedback</a>
       <a href="/settings" class="nav-btn">⚙️ Settings</a>
     </nav>
   </header>
@@ -35,9 +36,9 @@
   <!-- ═══════════════ SUBMIT COMPLAINT ═══════════════ -->
   <section class="card settings-card">
     <div class="section-header">
-      <h2>📣 Submit a Complaint or Report</h2>
+      <h2>⭐ Submit Customer Feedback</h2>
     </div>
-    <p class="hint-text">Submit your complaint or feedback about canteen services. All submissions are reviewed by management.</p>
+    <p class="hint-text">Submit your feedback about canteen services. All submissions are reviewed by management.</p>
 
     <div style="margin-top:16px;">
       <div class="settings-grid" style="grid-template-columns:1fr 1fr;">
@@ -61,14 +62,12 @@
         <div class="setting-item" style="flex-direction:column;align-items:stretch;">
           <label style="font-weight:700;margin-bottom:4px;">Category *</label>
           <select id="compCategory" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
-            <option value="general">General Feedback</option>
-            <option value="food_quality">Food Quality</option>
-            <option value="hygiene">Hygiene & Cleanliness</option>
-            <option value="service">Service Issue</option>
-            <option value="pricing">Pricing Concern</option>
-            <option value="late_delivery">Late Delivery</option>
-            <option value="missing_order">Missing Order</option>
-            <option value="other">Other</option>
+            <option value="behaviour">🤝 Behaviour</option>
+            <option value="food_quality">🍔 Food Quality</option>
+            <option value="service">🛎️ Service</option>
+            <option value="cleanliness">🧹 Cleanliness</option>
+            <option value="pricing">💰 Pricing</option>
+            <option value="other">📌 Other</option>
           </select>
         </div>
       </div>
@@ -81,18 +80,18 @@
         <textarea id="compDesc" placeholder="Describe your complaint or report in detail..." rows="5" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
       </div>
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
-        <button class="btn btn-save" id="submitComplaintBtn" onclick="submitComplaint()">📤 Submit Complaint</button>
+        <button class="btn btn-save" id="submitComplaintBtn" onclick="submitComplaint()">📤 Submit Feedback</button>
         <button class="btn btn-secondary" onclick="clearForm()">↩️ Clear</button>
       </div>
     </div>
 
-    <div class="toast" id="toast">✅ Complaint Submitted!</div>
+    <div class="toast" id="toast">✅ Feedback Submitted!</div>
   </section>
 
   <!-- ═══════════════ COMPLAINTS LIST ═══════════════ -->
   <section class="card settings-card">
     <div class="section-header">
-      <h2>📋 All Complaints & Reports</h2>
+      <h2>📋 All Customer Feedback</h2>
       <div class="section-actions" style="display:flex;gap:8px;align-items:center;">
         <select id="statusFilter" onchange="loadComplaints()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
           <option value="all">All Status</option>
@@ -103,14 +102,12 @@
         </select>
         <select id="catFilter" onchange="loadComplaints()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
           <option value="all">All Categories</option>
-          <option value="general">General</option>
-          <option value="food_quality">Food Quality</option>
-          <option value="hygiene">Hygiene</option>
-          <option value="service">Service</option>
-          <option value="pricing">Pricing</option>
-          <option value="late_delivery">Late Delivery</option>
-          <option value="missing_order">Missing Order</option>
-          <option value="other">Other</option>
+          <option value="behaviour">🤝 Behaviour</option>
+          <option value="food_quality">🍔 Food Quality</option>
+          <option value="service">🛎️ Service</option>
+          <option value="cleanliness">🧹 Cleanliness</option>
+          <option value="pricing">💰 Pricing</option>
+          <option value="other">📌 Other</option>
         </select>
       </div>
     </div>
@@ -122,7 +119,8 @@
             <th>#</th>
             <th>Date</th>
             <th>Name</th>
-            <th>Phone</th>
+            <th>Emp ID</th>
+            <th>Rating</th>
             <th>Category</th>
             <th>Subject</th>
             <th>Status</th>
@@ -194,13 +192,12 @@
     let allComplaints = [];
 
     const categoryLabels = {
-      general: '💬 General',
+      behaviour: '🤝 Behaviour',
       food_quality: '🍔 Food Quality',
-      hygiene: '🧹 Hygiene',
       service: '🛎️ Service',
+      cleanliness: '🧹 Cleanliness',
       pricing: '💰 Pricing',
-      late_delivery: '⏰ Late Delivery',
-      missing_order: '❌ Missing Order',
+      general: '💬 General',
       other: '📌 Other',
     };
 
@@ -342,7 +339,7 @@
     function renderComplaints() {
       const tbody = document.getElementById('complaintsBody');
       if (!allComplaints || allComplaints.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No complaints found.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No feedback found.</td></tr>';
         return;
       }
       let html = '';
@@ -352,11 +349,14 @@
         const statusStyle = statusStyles[c.status] || '';
         const statusLabel = statusLabels[c.status] || c.status;
         const date = c.created_at ? c.created_at.substring(0, 10) : '—';
+        const rating = c.rating || 0;
+        const stars = rating > 0 ? '⭐'.repeat(rating) + '☆'.repeat(5 - rating) + ` (${rating}/5)` : '<span style="color:#94a3b8">—</span>';
         html += `<tr>
           <td>${i++}</td>
           <td class="date-cell">${date}</td>
           <td>${c.employee_name || '—'}</td>
-          <td>${c.phone_number || '—'}</td>
+          <td>${c.employee_number || '—'}</td>
+          <td style="white-space:nowrap;">${stars}</td>
           <td>${catLabel}</td>
           <td style="font-weight:700;">${c.subject}</td>
           <td><span style="${statusStyle}">${statusLabel}</span></td>
@@ -374,9 +374,14 @@
       replyingToId = id;
 
       document.getElementById('replyModalTitle').textContent = `💬 Reply to #${id}`;
+      const r = complaint.rating || 0;
+      const starsHtml = r > 0 ? '⭐'.repeat(r) + '☆'.repeat(5 - r) + ` (${r}/5)` : '—';
       document.getElementById('replyComplaintInfo').innerHTML = `
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">From:</span><span style="font-weight:700;">${complaint.employee_name || 'Unknown'}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Employee ID:</span><span style="font-weight:700;">${complaint.employee_number || '—'}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Phone:</span><span style="font-weight:700;">${complaint.phone_number || '—'}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Rating:</span><span style="font-weight:700;">${starsHtml}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Category:</span><span style="font-weight:700;">${categoryLabels[complaint.category] || complaint.category || '—'}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--text-light);font-weight:700;">Subject:</span><span style="font-weight:700;">${complaint.subject}</span></div>
         <div style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;border:1px solid var(--border);">${complaint.description}</div>
       `;

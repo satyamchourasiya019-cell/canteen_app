@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="Canteen Book" />
   <link rel="apple-touch-icon" href="/logo.svg" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <script src="/auth.js"></script>
 </head>
 <body>
   <!-- ═══════════════ HEADER ═══════════════ -->
@@ -265,7 +266,7 @@
       const empInput = document.getElementById('empNo');
       const empNo = parseInt(empInput.value, 10);
 
-      if (!empNo || empNo < 1 || empNo > 300) {
+      if (!empNo || empNo < 1 || empNo > 1000) {
         empInput.focus();
         empInput.classList.add('shake');
         setTimeout(() => empInput.classList.remove('shake'), 400);

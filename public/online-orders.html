@@ -55,6 +55,7 @@
     .sound-toggle{display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;color:var(--text-light);cursor:pointer}
     @media(max-width:640px){.order-card-info{grid-template-columns:1fr}.order-actions{flex-direction:column}.filter-tabs{gap:6px}.filter-tab{padding:8px 14px;font-size:0.8rem}}
   </style>
+  <script src="/auth.js"></script>
 </head>
 <body>
   <header class="top-bar">
@@ -151,11 +152,12 @@
 
     function connectSSE() {
       if (eventSource) eventSource.close();
-      eventSource = new EventSource('/api/orders/stream');
-
-      eventSource.addEventListener('new-order', (e) => {
+      eventSource = new EventSource('/api/orders/stream');      eventSource.addEventListener('new-order', (e) => {
         const order = JSON.parse(e.data);
-        if (order.created_at && order.created_at.startsWith(document.getElementById('dateFilter').value)) {
+        // Check if order is for currently viewed date
+        const filterDate = document.getElementById('dateFilter').value;
+        const orderDate = (order.created_at || '').substring(0, 10);
+        if (orderDate === filterDate) {
           const exists = allOrders.find(o => o.id === order.id);
           if (!exists) {
             allOrders.unshift(order);
@@ -176,6 +178,14 @@
         }
         updateSummaryCards();
         applyFilters();
+        // Show status change notification
+        const statusEmoji = {pending:'🟡',accepted:'🔵',preparing:'🟠',ready:'🟢',completed:'⚪',cancelled:'🔴'};
+        showNewOrderNotification(`Order #${updated.order_id || ''} → ${(updated.status||'').toUpperCase()}`);
+        // Flash the updated order card
+        setTimeout(() => {
+          const card = document.getElementById('order-' + updated.id);
+          if (card) { card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 3000); }
+        }, 100);
       });
 
       eventSource.onerror = () => {
@@ -252,17 +262,31 @@
 
     async function updateStatus(id, status) {
       try {
-        await fetch(`/api/orders/${id}/status`, {
+        const res = await fetch(`/api/orders/${id}/status`, {
           method: 'PUT',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({ status })
         });
-        showToast(`✅ Status → ${status.toUpperCase()}`);
+        const data = await res.json();
+        if (data.success) {
+          // Update local order data immediately
+          const idx = allOrders.findIndex(o => o.id === id);
+          if (idx !== -1) allOrders[idx].status = status;
+          updateSummaryCards();
+          applyFilters();
+          showToast(`✅ Status → ${status.toUpperCase()}`);
+        }
       } catch (e) { alert('Error updating status'); }
     }
 
-    function showNewOrderNotification(count) {
-      document.getElementById('notifText').textContent = `🔔 ${count} new order${count>1?'s':''} received!`;
+    function showNewOrderNotification(msgOrCount) {
+      let text;
+      if (typeof msgOrCount === 'number') {
+        text = `🔔 ${msgOrCount} new order${msgOrCount>1?'s':''} received!`;
+      } else {
+        text = `🔔 ${msgOrCount}`;
+      }
+      document.getElementById('notifText').textContent = text;
       document.getElementById('notifBar').classList.add('show');
       if (document.getElementById('soundToggle').checked) playBeep();
       setTimeout(() => document.getElementById('notifBar').classList.remove('show'), 10000);
@@ -283,7 +307,20 @@
     }
 
     function formatTime(ts) {
-      try { const d = new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(e) { return ts; }
+      try {
+        // Handle both 'YYYY-MM-DD HH:MM:SS' and ISO format
+        let d;
+        if (ts && ts.includes(' ') && !ts.includes('T')) {
+          // Format: '2026-09-03 14:30:00' - parse as local time
+          const parts = ts.split(' ');
+          const dateParts = parts[0].split('-');
+          const timeParts = (parts[1] || '00:00:00').split(':');
+          d = new Date(dateParts[0], dateParts[1]-1, dateParts[2], timeParts[0], timeParts[1], timeParts[2] || 0);
+        } else {
+          d = new Date(ts);
+        }
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      } catch(e) { return ts || '—'; }
     }
 
     function showToast(msg) {
