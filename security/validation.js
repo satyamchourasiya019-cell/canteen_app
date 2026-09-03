@@ -173,7 +173,7 @@ function validateSerialRegister(req, res, next) {
   const { serial_no, employee_name, phone_number, department, joining_date, leaving_date } = req.body;
 
   if (serial_no !== undefined && !isValidSerialNumber(serial_no)) {
-    return res.status(400).json({ error: 'Invalid serial number (must be 1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (must be 1-1000)' });
   }
   if (employee_name !== undefined) {
     req.body.employee_name = sanitizeString(employee_name, 200);

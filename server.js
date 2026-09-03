@@ -8,7 +8,7 @@ const PORT = 3456;
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 // Multer for Excel uploads (stored in memory)
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -395,7 +395,7 @@ app.post('/api/employees/upload', upload.single('excelFile'), (req, res) => {
         const name = row.name || row.Name || row.employee_name || row['Employee Name'] || row['Name'] || '';
         if (empNo) {
           const parsed = parseInt(empNo, 10);
-          if (parsed >= 1 && parsed <= 300) {
+          if (parsed >= 1 && parsed <= 1000) {
             insertEmp.run(parsed, String(name).trim());
             count++;
           }
@@ -1333,6 +1333,26 @@ const seedSerialTx = db.transaction(() => {
 seedSerialTx();
 console.log(`📇 Serial register: ${serialCount.count + Math.max(0, 1000 - serialCount.count)} slots ready (1-1000)`);
 
+// ─── API: Serial register stats (MUST be before :serialNo routes) ──
+app.get('/api/serial-register/stats/all', (_req, res) => {
+  const total = db.prepare('SELECT COUNT(*) as count FROM serial_register').get().count;
+  const active = db.prepare("SELECT COUNT(*) as count FROM serial_register WHERE status = 'Active'").get().count;
+  const left = db.prepare("SELECT COUNT(*) as count FROM serial_register WHERE status = 'Left Company'").get().count;
+  const vacant = db.prepare("SELECT COUNT(*) as count FROM serial_register WHERE status = 'Vacant'").get().count;
+  res.json({ total, active, left, vacant });
+});
+
+// ─── API: Serial register lookup (alias for frontend) ─────
+app.get('/api/serial-register/lookup/:serialNo', (req, res) => {
+  const serialNo = parseInt(req.params.serialNo, 10);
+  if (!serialNo || serialNo < 1 || serialNo > 1000) {
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
+  }
+  const row = db.prepare('SELECT * FROM serial_register WHERE serial_no = ?').get(serialNo);
+  if (!row) return res.status(404).json({ error: 'Serial number not found' });
+  res.json(row);
+});
+
 // ─── API: Get all serial registers (paginated, searchable) ───
 app.get('/api/serial-register', (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -1376,21 +1396,11 @@ app.get('/api/serial-register', (req, res) => {
   });
 });
 
-// ─── API: Serial register stats ─────────────────────────────
-app.get('/api/serial-register/stats/all', (_req, res) => {
-  const total = db.prepare('SELECT COUNT(*) as count FROM serial_register').get().count;
-  const active = db.prepare("SELECT COUNT(*) as count FROM serial_register WHERE status = 'Active'").get().count;
-  const left = db.prepare("SELECT COUNT(*) as count FROM serial_register WHERE status = 'Left Company'").get().count;
-  const vacant = db.prepare("SELECT COUNT(*) as count FROM serial_register WHERE status = 'Vacant'").get().count;
-
-  res.json({ total, active, left, vacant });
-});
-
 // ─── API: Get single serial register entry ──────────────────
 app.get('/api/serial-register/:serialNo', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
   if (!serialNo || serialNo < 1 || serialNo > 1000) {
-    return res.status(400).json({ error: 'Invalid serial number (1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   }
   const row = db.prepare('SELECT * FROM serial_register WHERE serial_no = ?').get(serialNo);
   if (!row) return res.status(404).json({ error: 'Serial number not found' });
@@ -1403,7 +1413,7 @@ app.post('/api/serial-register', (req, res) => {
   const serialNo = parseInt(serial_no, 10);
 
   if (!serialNo || serialNo < 1 || serialNo > 1000) {
-    return res.status(400).json({ error: 'Invalid serial number (1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   }
   if (!employee_name || employee_name.trim() === '') {
     return res.status(400).json({ error: 'Employee name is required' });
@@ -1441,7 +1451,7 @@ app.post('/api/serial-register/:serialNo/leave', (req, res) => {
   const { leaving_date } = req.body;
 
   if (!serialNo || serialNo < 1 || serialNo > 1000) {
-    return res.status(400).json({ error: 'Invalid serial number (1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   }
 
   const existing = db.prepare('SELECT * FROM serial_register WHERE serial_no = ?').get(serialNo);
@@ -1474,7 +1484,7 @@ app.post('/api/serial-register/:serialNo/new-record', (req, res) => {
   const { employee_name, phone_number, department, joining_date } = req.body;
 
   if (!serialNo || serialNo < 1 || serialNo > 1000) {
-    return res.status(400).json({ error: 'Invalid serial number (1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   }
   if (!employee_name || employee_name.trim() === '') {
     return res.status(400).json({ error: 'Employee name is required' });
@@ -1510,7 +1520,7 @@ app.post('/api/serial-register/:serialNo/new-record', (req, res) => {
 app.get('/api/serial-register/:serialNo/history', (req, res) => {
   const serialNo = parseInt(req.params.serialNo, 10);
   if (!serialNo || serialNo < 1 || serialNo > 1000) {
-    return res.status(400).json({ error: 'Invalid serial number (1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   }
 
   const history = db.prepare('SELECT * FROM serial_history WHERE serial_no = ? ORDER BY closed_at DESC').all(serialNo);
@@ -1523,7 +1533,7 @@ app.put('/api/serial-register/:serialNo', (req, res) => {
   const { employee_name, phone_number, department } = req.body;
 
   if (!serialNo || serialNo < 1 || serialNo > 1000) {
-    return res.status(400).json({ error: 'Invalid serial number (1-500)' });
+    return res.status(400).json({ error: 'Invalid serial number (1-1000)' });
   }
 
   const existing = db.prepare('SELECT * FROM serial_register WHERE serial_no = ?').get(serialNo);
@@ -1585,9 +1595,18 @@ app.get('/serial-register', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'serial-register.html'));
 });
 
-// ═══════════════════════════════════════════════════════════════════
-//  Start ────────────────────────────────────────────────────────
+// ─── Missing page routes ─────────────────────────────────
+app.get('/entry', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'entry.html'));
+});
 
+app.get('/emp-records', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'emp-records.html'));
+});
+
+app.get('/auth', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'auth.html'));
+});
 
 // ─── Complaints page ───────────────────────────────────────
 app.get('/complaints', (_req, res) => {
