@@ -23,7 +23,7 @@ const PORT = process.env.PORT || 3456;
 
 // ─── Body size limit (10MB) ──────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 
 // ─── Security Headers ─────────────────────────────────────────
 app.use((_req, res, next) => {
@@ -315,7 +315,7 @@ function sendSSE(event, data) {
 //  ADMIN API PROTECTION MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════
 // Public endpoints that do NOT require authentication
-const PUBLIC_GET_PATHS = ['/api/today', '/api/prices', '/api/menu/available', '/api/booking-open', '/api/serial-register/lookup', '/api/password'];
+const PUBLIC_GET_PATHS = ['/api/today', '/api/prices', '/api/menu/available', '/api/booking-open', '/api/serial-register/lookup', '/api/password', '/api/serial-register/stats/all'];
 const PUBLIC_POST_PATHS = ['/api/orders', '/api/complaints', '/api/password/verify'];
 
 app.use('/api', (req, res, next) => {
@@ -329,6 +329,9 @@ app.use('/api', (req, res, next) => {
 
   // Allow public order tracking (new endpoint)
   if (req.method === 'GET' && path.startsWith('/orders/track/')) return next();
+
+  // Allow public serial-register lookup
+  if (req.method === 'GET' && path.startsWith('/serial-register/lookup/')) return next();
 
   // Allow SSE stream for admin
   if (path === '/orders/stream') return requireAuth(req, res, next);
@@ -1356,6 +1359,10 @@ app.get('/auth', (_req, res) => res.sendFile(path.join(PUBLIC, 'auth.html')));
 app.get('/api/auth/verify', requireAuth, (req, res) => {
   res.json({ valid: true, user: { uid: req.user.uid, email: req.user.email, role: req.user.role, name: req.user.name } });
 });
+
+// ─── Missing page routes ─────────────────────────────────────
+app.get('/entry', (_req, res) => res.sendFile(path.join(PUBLIC, 'entry.html')));
+app.get('/emp-records', (_req, res) => res.sendFile(path.join(PUBLIC, 'emp-records.html')));
 
 app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC, 'entry.html')));
 app.get('/payment', (_req, res) => res.sendFile(path.join(PUBLIC, 'payment.html')));
