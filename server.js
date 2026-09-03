@@ -66,7 +66,7 @@ for (const [k, v] of Object.entries(defaultPrices)) {
 }
 
 // Seed default password if not present
-insertSetting.run('password', 0); // default password = 0
+insertSetting.run('password', 988388); // password = 988388
 
 // ─── EMPLOYEES TABLE (for name lookup from Excel) ────────────────
 db.exec(`

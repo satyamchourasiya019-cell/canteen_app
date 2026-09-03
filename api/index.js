@@ -344,7 +344,7 @@ async function seedDefaults() {
   // Prices
   const existingPrices = await getAll(C.settings);
   if (existingPrices.length === 0) {
-    for (const [k, v] of Object.entries({ tea: 10, breakfast: 30, lunch: 80, dinner: 80, snacks: 20, password: '0' })) {
+    for (const [k, v] of Object.entries({ tea: 10, breakfast: 30, lunch: 80, dinner: 80, snacks: 20, password: '988388' })) {
       await setDocData(C.settings, k, { key: k, value: v });
     }
   }
