@@ -7,3 +7,5 @@ node_modules/
 Thumbs.db
 ai-voice-assistance/
 .freebuff/
+
+.vercel
