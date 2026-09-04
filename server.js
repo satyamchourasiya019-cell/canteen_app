@@ -1663,6 +1663,10 @@ app.get('/subscription', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'subscription.html'));
 });
 
+app.get('/approval-pending', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'approval-pending.html'));
+});
+
 // ─── Complaints APIs ───────────────────────────────────────
 app.get('/api/complaints', (req, res) => {
   const { status, category } = req.query;

@@ -16,14 +16,13 @@
     .login-body{padding:28px 24px}
     .form-group{margin-bottom:18px}
     .form-group label{display:block;font-size:0.8rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
-    .form-group input{width:100%;padding:14px 16px;font-size:1rem;font-weight:600;border:2px solid #e2e8f0;border-radius:10px;outline:none;transition:border-color 0.2s}
-    .form-group input:focus{border-color:#2563eb}
-    .form-group input.error{border-color:#dc2626}
+    .form-group input,.form-group select{width:100%;padding:14px 16px;font-size:1rem;font-weight:600;border:2px solid #e2e8f0;border-radius:10px;outline:none;transition:border-color 0.2s}
+    .form-group input:focus,.form-group select:focus{border-color:#2563eb}
     .login-btn{width:100%;padding:14px;font-size:1.05rem;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;cursor:pointer;transition:all 0.2s}
-    .login-btn:hover{background:linear-gradient(135deg,#1d4ed8,#1e40af);transform:translateY(-1px)}
+    .login-btn:hover{transform:translateY(-1px)}
     .login-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
     .create-btn{width:100%;padding:14px;font-size:1.05rem;font-weight:700;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#047857);color:#fff;cursor:pointer;transition:all 0.2s}
-    .create-btn:hover{background:linear-gradient(135deg,#047857,#065f46);transform:translateY(-1px)}
+    .create-btn:hover{transform:translateY(-1px)}
     .create-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
     .error-msg{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:16px;display:none;white-space:pre-line}
     .error-msg.show{display:block}
@@ -35,13 +34,10 @@
     .tab-btn:hover:not(.active){color:#1e293b}
     .tab-content{display:none}
     .tab-content.active{display:block}
-    .security-note{margin-top:20px;padding:12px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.78rem;color:#0369a1;text-align:center}
-    .security-note strong{display:block;margin-bottom:2px}
     .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:8px;vertical-align:middle}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .divider{text-align:center;margin:16px 0;position:relative}
-    .divider::before{content:'';position:absolute;left:0;top:50%;width:100%;height:1px;background:#e2e8f0}
-    .divider span{position:relative;background:#fff;padding:0 12px;color:#94a3b8;font-size:0.8rem}
+    .security-note{margin-top:20px;padding:12px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.78rem;color:#0369a1;text-align:center}
+    .security-note strong{display:block;margin-bottom:2px}
   </style>
 </head>
 <body>
@@ -52,13 +48,12 @@
       <p>Admin Dashboard Access</p>
     </div>
     <div class="login-body">
-      <!-- Tab Bar: Login / Create Account -->
+      <!-- Tab Bar -->
       <div class="tab-bar">
         <button class="tab-btn active" onclick="switchTab('login')">🔑 Login</button>
-        <button class="tab-btn" onclick="switchTab('create')">➕ Create Account</button>
+        <button class="tab-btn" onclick="switchTab('register')">➕ Create Account</button>
       </div>
 
-      <!-- Messages -->
       <div class="error-msg" id="errorMsg"></div>
       <div class="success-msg" id="successMsg"></div>
 
@@ -66,38 +61,46 @@
       <div class="tab-content active" id="loginTab">
         <form id="loginForm" onsubmit="return false;">
           <div class="form-group">
-            <label>Admin Password</label>
-            <input type="password" id="loginPassword" placeholder="Enter admin password" required autocomplete="current-password" autofocus />
+            <label>Email Address</label>
+            <input type="email" id="loginEmail" placeholder="Enter your email" required autocomplete="email" autofocus />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter your password" required autocomplete="current-password" />
           </div>
           <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
         </form>
-        <div style="text-align:center;margin-top:12px;">
-          <a href="#" onclick="resetPassword()" style="color:#2563eb;font-size:0.85rem;text-decoration:none;">🔑 Forgot Password?</a>
-        </div>
       </div>
 
-      <!-- ═══ CREATE ACCOUNT TAB ═══ -->
-      <div class="tab-content" id="createTab">
-        <form id="createForm" onsubmit="return false;">
+      <!-- ═══ REGISTER TAB ═══ -->
+      <div class="tab-content" id="registerTab">
+        <form id="registerForm" onsubmit="return false;">
           <div class="form-group">
-            <label>Current Password (for verification)</label>
-            <input type="password" id="createCurrentPw" placeholder="Enter current password" required autocomplete="current-password" />
+            <label>Full Name</label>
+            <input type="text" id="regName" placeholder="Enter your full name" required autocomplete="name" />
           </div>
           <div class="form-group">
-            <label>New Password</label>
-            <input type="password" id="createNewPw" placeholder="Enter new password (min 4 characters)" required autocomplete="new-password" />
+            <label>Email Address</label>
+            <input type="email" id="regEmail" placeholder="Enter your email" required autocomplete="email" />
           </div>
           <div class="form-group">
-            <label>Confirm New Password</label>
-            <input type="password" id="createConfirmPw" placeholder="Confirm new password" required autocomplete="new-password" />
+            <label>Password</label>
+            <input type="password" id="regPassword" placeholder="Create a password (min 4 chars)" required autocomplete="new-password" />
           </div>
-          <button type="submit" class="create-btn" id="createBtn">✅ Create Account & Login</button>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="regConfirm" placeholder="Confirm your password" required autocomplete="new-password" />
+          </div>
+          <button type="submit" class="create-btn" id="regBtn">➕ Create Account</button>
         </form>
+        <p style="text-align:center;margin-top:12px;font-size:0.8rem;color:#64748b;">
+          After registration, wait for developer approval before you can login.
+        </p>
       </div>
 
-      <div class="security-note" id="securityNote">
+      <div class="security-note">
         <strong>🔒 Secure Access Only</strong>
-        This dashboard is restricted to authorized administrators.
+        All accounts require developer approval before activation.
       </div>
     </div>
   </div>
@@ -108,29 +111,25 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       hideMessages();
-
       if (tab === 'login') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('loginTab').classList.add('active');
-        document.getElementById('loginPassword').focus();
+        document.getElementById('loginEmail').focus();
       } else {
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
-        document.getElementById('createTab').classList.add('active');
-        document.getElementById('createCurrentPw').focus();
+        document.getElementById('registerTab').classList.add('active');
+        document.getElementById('regName').focus();
       }
     }
 
-    // ─── Messages ──────────────────────────────────────────
     function showError(msg) {
-      const el = document.getElementById('errorMsg');
-      el.textContent = msg;
-      el.classList.add('show');
+      document.getElementById('errorMsg').textContent = msg;
+      document.getElementById('errorMsg').classList.add('show');
       document.getElementById('successMsg').classList.remove('show');
     }
     function showSuccess(msg) {
-      const el = document.getElementById('successMsg');
-      el.textContent = msg;
-      el.classList.add('show');
+      document.getElementById('successMsg').textContent = msg;
+      document.getElementById('successMsg').classList.add('show');
       document.getElementById('errorMsg').classList.remove('show');
     }
     function hideMessages() {
@@ -139,162 +138,108 @@
     }
 
     // ─── Login ─────────────────────────────────────────────
-    const loginForm = document.getElementById('loginForm');
-    const loginBtn = document.getElementById('loginBtn');
-
-    function setLoginLoading(loading) {
-      loginBtn.disabled = loading;
-      loginBtn.innerHTML = loading ? '<span class="spinner"></span>Signing in...' : 'Sign In';
-    }
-
-    loginForm.addEventListener('submit', async () => {
+    document.getElementById('loginForm').addEventListener('submit', async () => {
       hideMessages();
+      const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
-      if (!password) { showError('Please enter the admin password.'); return; }
+      if (!email || !password) { showError('Please enter email and password.'); return; }
 
-      setLoginLoading(true);
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Signing in...';
+
       try {
-        const res = await fetch('/api/password/verify', {
+        const res = await fetch('/api/users/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ email, password }),
         });
         const data = await res.json();
 
-        if (data.valid) {
+        if (data.success) {
+          // Store credentials for auth.js
+          localStorage.setItem('adminEmail', email);
           localStorage.setItem('adminPassword', password);
           localStorage.setItem('adminLoginTime', String(Date.now()));
+          localStorage.setItem('adminUser', JSON.stringify(data.user));
           window.location.href = '/';
+        } else if (data.status === 'pending') {
+          showError('⏳ Your account is pending approval.\n\nPlease wait for the developer to approve your account before you can login.');
+        } else if (data.status === 'paused') {
+          showError('🚫 Your account has been paused.\n\nContact the developer to reactivate your account.');
         } else {
-          let hint = '';
-          try {
-            const hintRes = await fetch('/api/password/default');
-            const hintData = await hintRes.json();
-            if (hintData.default) hint = hintData.default;
-          } catch(e) {}
-          if (hint) {
-            showError('Incorrect password.\n\nCurrent password: ' + hint);
-          } else {
-            showError('Incorrect password. Please try again.');
-          }
-          setLoginLoading(false);
+          showError(data.error || 'Invalid email or password.');
         }
       } catch (err) {
         showError('Login failed. Server may be starting up. Please wait and try again.');
-        setLoginLoading(false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
       }
     });
 
     document.getElementById('loginPassword').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') loginForm.dispatchEvent(new Event('submit'));
+      if (e.key === 'Enter') document.getElementById('loginForm').dispatchEvent(new Event('submit'));
     });
 
-    // ─── Create Account ────────────────────────────────────
-    const createForm = document.getElementById('createForm');
-    const createBtn = document.getElementById('createBtn');
-
-    function setCreateLoading(loading) {
-      createBtn.disabled = loading;
-      createBtn.innerHTML = loading ? '<span class="spinner"></span>Creating account...' : '✅ Create Account & Login';
-    }
-
-    createForm.addEventListener('submit', async () => {
+    // ─── Register ──────────────────────────────────────────
+    document.getElementById('registerForm').addEventListener('submit', async () => {
       hideMessages();
-      const currentPw = document.getElementById('createCurrentPw').value;
-      const newPw = document.getElementById('createNewPw').value;
-      const confirmPw = document.getElementById('createConfirmPw').value;
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const confirm = document.getElementById('regConfirm').value;
 
-      if (!currentPw) { showError('Please enter current password for verification.'); return; }
-      if (!newPw || newPw.length < 4) { showError('New password must be at least 4 characters.'); return; }
-      if (newPw !== confirmPw) { showError('New passwords do not match.'); return; }
-      if (newPw === currentPw) { showError('New password must be different from current password.'); return; }
+      if (!name) { showError('Please enter your full name.'); return; }
+      if (!email || !email.includes('@')) { showError('Please enter a valid email address.'); return; }
+      if (!password || password.length < 4) { showError('Password must be at least 4 characters.'); return; }
+      if (password !== confirm) { showError('Passwords do not match.'); return; }
 
-      setCreateLoading(true);
+      const btn = document.getElementById('regBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Creating account...';
+
       try {
-        // Step 1: Verify current password
-        const verifyRes = await fetch('/api/password/verify', {
+        const res = await fetch('/api/users/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: currentPw }),
-        });
-        const verifyData = await verifyRes.json();
-
-        if (!verifyData.valid) {
-          showError('Current password is incorrect. Please verify and try again.');
-          setCreateLoading(false);
-          return;
-        }
-
-        // Step 2: Set new password
-        const updateRes = await fetch('/api/password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: newPw }),
-        });
-        const updateData = await updateRes.json();
-
-        if (updateData.success) {
-          // Step 3: Login with new password
-          localStorage.setItem('adminPassword', newPw);
-          localStorage.setItem('adminLoginTime', String(Date.now()));
-          showSuccess('✅ Account created successfully!\n\nRedirecting to dashboard...');
-          setTimeout(() => { window.location.href = '/'; }, 1000);
-        } else {
-          showError('Failed to set new password. Please try again.');
-          setCreateLoading(false);
-        }
-      } catch (err) {
-        showError('Network error. Server may be starting up. Please wait and try again.');
-        setCreateLoading(false);
-      }
-    });
-
-    document.getElementById('createConfirmPw').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') createForm.dispatchEvent(new Event('submit'));
-    });
-
-    // ─── Forgot Password ───────────────────────────────────
-    async function resetPassword() {
-      const currentPw = prompt('Enter your current password to reset to default (988388):');
-      if (!currentPw) return;
-      try {
-        const res = await fetch('/api/password/reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ currentPassword: currentPw }),
+          body: JSON.stringify({ email, password, name }),
         });
         const data = await res.json();
+
         if (data.success) {
-          alert('✅ Password reset to: 988388\n\nYou can now login with this password.');
-          document.getElementById('loginPassword').value = '988388';
-          switchTab('login');
+          // Store email for approval-pending page
+          localStorage.setItem('pendingEmail', email);
+          localStorage.setItem('pendingPassword', password);
+          showSuccess('✅ Account created! Redirecting to approval page...');
+          setTimeout(() => { window.location.href = '/approval-pending'; }, 1500);
         } else {
-          alert('❌ ' + (data.error || 'Reset failed. Current password incorrect.'));
+          showError(data.error || 'Registration failed. Please try again.');
         }
       } catch (err) {
-        alert('❌ Reset failed. Server may be starting up.');
+        showError('Registration failed. Server may be starting up. Please wait and try again.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '➕ Create Account';
       }
-    }
+    });
+
+    document.getElementById('regConfirm').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('registerForm').dispatchEvent(new Event('submit'));
+    });
 
     // ─── Check if already logged in ────────────────────────
+    const storedEmail = localStorage.getItem('adminEmail');
     const storedPw = localStorage.getItem('adminPassword');
-    if (storedPw) {
-      fetch('/api/password/verify', {
+    if (storedEmail && storedPw) {
+      fetch('/api/users/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: storedPw }),
+        body: JSON.stringify({ email: storedEmail, password: storedPw }),
       }).then(r => r.json()).then(data => {
         if (data.valid) window.location.href = '/';
       }).catch(() => {});
     }
-
-    // ─── Fetch and display default password hint ────────────
-    fetch('/api/password/default').then(r => r.json()).then(data => {
-      if (data.default) {
-        const note = document.getElementById('securityNote');
-        if (note) note.innerHTML = '<strong>🔒 Secure Access Only</strong>Default password: <code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;">' + data.default + '</code><br>You can change this after login in Settings.';
-      }
-    }).catch(() => {});
   </script>
 </body>
 </html>

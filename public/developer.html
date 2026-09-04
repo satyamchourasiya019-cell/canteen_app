@@ -13,7 +13,6 @@
   <script src="/auth.js"></script>
 </head>
 <body>
-  <!-- HEADER -->
   <header class="top-bar">
     <h1>🍽️ Digital Canteen Book</h1>
     <nav>
@@ -32,40 +31,86 @@
 
   <div class="date-banner" id="dateBanner">Loading date…</div>
 
-  <div style="max-width:1100px;margin:0 auto;padding:20px;">
+  <div style="max-width:1200px;margin:0 auto;padding:20px;">
 
     <!-- ACCESS CHECK -->
     <div id="accessDenied" style="display:none;text-align:center;padding:60px 20px;">
       <div style="font-size:4rem;margin-bottom:16px;">🔒</div>
       <h2 style="color:var(--danger);margin-bottom:8px;">Access Denied</h2>
-      <p style="color:var(--text-light);">You need Developer or Super Admin access to view this page.</p>
+      <p style="color:var(--text-light);">You need Developer access to view this page.</p>
       <a href="/" class="btn btn-primary" style="margin-top:20px;display:inline-block;">← Back to Dashboard</a>
     </div>
 
     <div id="developerContent" style="display:none;">
 
-      <!-- ═══════════ ADMIN USERS MANAGEMENT ═══════════ -->
-      <section class="card settings-card" style="margin-bottom:20px;">
+      <!-- ═══════════ PENDING APPROVALS ═══════════ -->
+      <section class="card settings-card" style="margin-bottom:20px;" id="pendingSection">
         <div class="section-header">
-          <h2>👥 Admin Users Management</h2>
-          <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">➕ Add Admin User</button>
+          <h2>⏳ Pending Approvals</h2>
+          <span id="pendingCount" style="background:#d97706;color:#fff;padding:4px 12px;border-radius:16px;font-size:0.85rem;font-weight:700;">0</span>
         </div>
-        <p class="hint-text">Manage all admin users. Add, remove, or change roles. Only the Developer can manage admin accounts.</p>
-
+        <p class="hint-text">Review and approve new user registrations. Users cannot login until approved.</p>
         <div class="table-wrap" style="margin-top:16px;">
           <table>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Email</th>
                 <th>Name</th>
+                <th>Email</th>
+                <th>Registered</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pendingBody">
+              <tr class="empty-row"><td colspan="5">No pending approvals</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══════════ ALL USERS ═══════════ -->
+      <section class="card settings-card" style="margin-bottom:20px;">
+        <div class="section-header">
+          <h2>👥 All Users</h2>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">➕ Add User</button>
+            <button class="btn btn-secondary btn-sm" onclick="loadAllUsers()">🔄 Refresh</button>
+          </div>
+        </div>
+        <p class="hint-text">Manage all registered users. You can approve, pause, resume, or remove users.</p>
+
+        <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
+          <select id="roleFilter" onchange="renderAllUsers()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="all">All Roles</option>
+            <option value="DEVELOPER">🛠️ Developer</option>
+            <option value="SUPER_ADMIN">🔴 Super Admin</option>
+            <option value="ADMIN">🔵 Admin</option>
+            <option value="CANTEEN_STAFF">🟢 Canteen Staff</option>
+          </select>
+          <select id="statusFilter" onchange="renderAllUsers()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="all">All Status</option>
+            <option value="approved">✅ Approved</option>
+            <option value="pending">⏳ Pending</option>
+            <option value="rejected">❌ Rejected</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Active</th>
+                <th>Last Login</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="usersBody">
-              <tr class="empty-row"><td colspan="6">Loading users...</td></tr>
+              <tr class="empty-row"><td colspan="8">Loading users...</td></tr>
             </tbody>
           </table>
         </div>
@@ -77,80 +122,56 @@
           <h2>⚡ Quick Actions</h2>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:16px;">
-          <button class="btn btn-primary" onclick="removeAllAdmins()" style="padding:16px;text-align:left;">
-            🗑️ Remove All Admins (except Developer)
+          <button class="btn btn-primary" onclick="approveAllPending()" style="padding:16px;text-align:left;">
+            ✅ Approve All Pending Users
           </button>
-          <button class="btn btn-primary" onclick="resetAllRoles()" style="padding:16px;text-align:left;">
-            🔄 Reset All Roles to ADMIN
+          <button class="btn btn-primary" onclick="pauseAllNonDev()" style="padding:16px;text-align:left;">
+            ⏸️ Pause All Non-Developer Users
           </button>
-          <button class="btn btn-primary" onclick="viewAuditLogs()" style="padding:16px;text-align:left;">
-            📋 View Audit Logs
+          <button class="btn btn-primary" onclick="resumeAllUsers()" style="padding:16px;text-align:left;">
+            ▶️ Resume All Paused Users
           </button>
-          <button class="btn btn-primary" onclick="exportUserData()" style="padding:16px;text-align:left;">
+          <button class="btn btn-danger" onclick="exportUserData()" style="padding:16px;text-align:left;">
             📤 Export User Data
           </button>
-        </div>
-      </section>
-
-      <!-- ═══════════ AUDIT LOGS ═══════════ -->
-      <section class="card settings-card" id="auditSection" style="display:none;margin-bottom:20px;">
-        <div class="section-header">
-          <h2>📋 Audit Logs</h2>
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('auditSection').style.display='none'">✕ Close</button>
-        </div>
-        <div class="table-wrap" style="margin-top:16px;">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Resource</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody id="auditBody">
-              <tr class="empty-row"><td colspan="5">Loading audit logs...</td></tr>
-            </tbody>
-          </table>
         </div>
       </section>
     </div>
   </div>
 
-  <!-- ═══════════ ADD/EDIT USER MODAL ═══════════ -->
-  <div class="modal-overlay" id="userModal" style="display:none;">
+  <!-- ═══════════ ADD USER MODAL ═══════════ -->
+  <div class="modal-overlay" id="addUserModal" style="display:none;">
     <div class="modal-content card modal-sm">
       <div class="modal-header">
-        <h2 id="userModalTitle">➕ Add Admin User</h2>
-        <button class="modal-close" onclick="closeUserModal()">✕</button>
+        <h2>➕ Add New User</h2>
+        <button class="modal-close" onclick="closeAddUserModal()">✕</button>
       </div>
       <div class="modal-body">
         <div class="field-group" style="margin-bottom:12px;">
-          <label style="font-weight:700;">Firebase Auth UID *</label>
-          <input type="text" id="modalUid" placeholder="Firebase Auth UID" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+          <label style="font-weight:700;">Full Name *</label>
+          <input type="text" id="addName" placeholder="Enter full name" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
         </div>
         <div class="field-group" style="margin-bottom:12px;">
           <label style="font-weight:700;">Email *</label>
-          <input type="email" id="modalEmail" placeholder="admin@example.com" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+          <input type="email" id="addEmail" placeholder="user@example.com" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
         </div>
         <div class="field-group" style="margin-bottom:12px;">
-          <label style="font-weight:700;">Name</label>
-          <input type="text" id="modalName" placeholder="Full name" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
+          <label style="font-weight:700;">Password *</label>
+          <input type="password" id="addPassword" placeholder="Min 4 characters" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
         </div>
         <div class="field-group" style="margin-bottom:12px;">
           <label style="font-weight:700;">Role *</label>
-          <select id="modalRole" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
-            <option value="ADMIN">ADMIN</option>
-            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-            <option value="CANTEEN_STAFF">CANTEEN_STAFF</option>
-            <option value="DEVELOPER">DEVELOPER</option>
+          <select id="addRole" style="width:100%;padding:10px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
+            <option value="ADMIN">🔵 Admin</option>
+            <option value="SUPER_ADMIN">🔴 Super Admin</option>
+            <option value="CANTEEN_STAFF">🟢 Canteen Staff</option>
+            <option value="DEVELOPER">🛠️ Developer</option>
           </select>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveUser()">💾 Save</button>
+        <button class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="addNewUser()">💾 Add User</button>
       </div>
     </div>
   </div>
@@ -160,7 +181,7 @@
 
   <script>
     let allUsers = [];
-    let editingUid = null;
+    let pendingUsers = [];
 
     const roleStyles = {
       DEVELOPER: 'background:#7c3aed;color:#fff;',
@@ -171,213 +192,308 @@
 
     // ─── Init ───────────────────────────────────────────────
     (async function init() {
-      // Check access
       const user = window.CanteenAuth?.getUser?.();
-      if (!user || !['DEVELOPER', 'SUPER_ADMIN'].includes(user.role)) {
+      if (!user || user.role !== 'DEVELOPER') {
         document.getElementById('accessDenied').style.display = 'block';
         return;
       }
       document.getElementById('developerContent').style.display = 'block';
-      await loadUsers();
+      await loadPendingUsers();
+      await loadAllUsers();
     })();
 
-    // ─── Load Users ─────────────────────────────────────────
-    async function loadUsers() {
+    // ─── Load Pending Users ─────────────────────────────────
+    async function loadPendingUsers() {
       try {
-        const res = await fetch('/api/admin/users');
+        const res = await fetch('/api/users/pending');
         if (res.ok) {
-          allUsers = await res.json();
-          renderUsers();
+          pendingUsers = await res.json();
+          renderPendingUsers();
         }
       } catch (e) {
-        console.error('Error loading users:', e);
+        console.error('Error loading pending users:', e);
       }
     }
 
-    function renderUsers() {
-      const tbody = document.getElementById('usersBody');
-      if (!allUsers || allUsers.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No admin users found.</td></tr>';
+    function renderPendingUsers() {
+      document.getElementById('pendingCount').textContent = pendingUsers.length;
+      const tbody = document.getElementById('pendingBody');
+      if (!pendingUsers || pendingUsers.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">✅ No pending approvals</td></tr>';
         return;
       }
       let html = '';
-      allUsers.forEach((u, i) => {
-        const roleStyle = roleStyles[u.role] || '';
-        const status = u.active !== false ? '🟢 Active' : '🔴 Inactive';
+      pendingUsers.forEach((u, i) => {
         html += `<tr>
           <td>${i + 1}</td>
-          <td style="font-weight:600;">${u.email || '—'}</td>
-          <td>${u.name || '—'}</td>
-          <td><span style="${roleStyle}padding:4px 12px;border-radius:12px;font-size:0.8rem;font-weight:700;">${u.role}</span></td>
-          <td>${status}</td>
+          <td style="font-weight:600;">${u.name || '—'}</td>
+          <td>${u.email}</td>
+          <td style="font-size:0.85rem;color:var(--text-light);">${u.createdAt || '—'}</td>
           <td>
-            <button class="btn btn-primary btn-sm" onclick="editUser('${u.id}')" style="margin-right:4px;">✏️</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.email}')">🗑️</button>
+            <button class="btn btn-primary btn-sm" onclick="approveUser('${u.email}')" style="margin-right:4px;">✅ Approve</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectUser('${u.email}')">❌ Reject</button>
           </td>
         </tr>`;
       });
       tbody.innerHTML = html;
     }
 
-    // ─── Add/Edit User Modal ────────────────────────────────
-    function showAddUserModal() {
-      editingUid = null;
-      document.getElementById('userModalTitle').textContent = '➕ Add Admin User';
-      document.getElementById('modalUid').value = '';
-      document.getElementById('modalUid').disabled = false;
-      document.getElementById('modalEmail').value = '';
-      document.getElementById('modalName').value = '';
-      document.getElementById('modalRole').value = 'ADMIN';
-      document.getElementById('userModal').style.display = 'flex';
-    }
-
-    function editUser(uid) {
-      const user = allUsers.find(u => u.id === uid);
-      if (!user) return;
-      editingUid = uid;
-      document.getElementById('userModalTitle').textContent = '✏️ Edit Admin User';
-      document.getElementById('modalUid').value = uid;
-      document.getElementById('modalUid').disabled = true;
-      document.getElementById('modalEmail').value = user.email || '';
-      document.getElementById('modalName').value = user.name || '';
-      document.getElementById('modalRole').value = user.role || 'ADMIN';
-      document.getElementById('userModal').style.display = 'flex';
-    }
-
-    function closeUserModal() {
-      document.getElementById('userModal').style.display = 'none';
-      editingUid = null;
-    }
-
-    async function saveUser() {
-      const uid = document.getElementById('modalUid').value.trim();
-      const email = document.getElementById('modalEmail').value.trim();
-      const name = document.getElementById('modalName').value.trim();
-      const role = document.getElementById('modalRole').value;
-
-      if (!uid) { alert('Firebase Auth UID is required'); return; }
-      if (!email) { alert('Email is required'); return; }
-
+    // ─── Load All Users ─────────────────────────────────────
+    async function loadAllUsers() {
       try {
-        const res = await fetch('/api/admin/users', {
+        const res = await fetch('/api/users/all');
+        if (res.ok) {
+          allUsers = await res.json();
+          renderAllUsers();
+        }
+      } catch (e) {
+        console.error('Error loading users:', e);
+      }
+    }
+
+    function renderAllUsers() {
+      const roleFilter = document.getElementById('roleFilter').value;
+      const statusFilter = document.getElementById('statusFilter').value;
+      let filtered = allUsers;
+      if (roleFilter !== 'all') filtered = filtered.filter(u => u.role === roleFilter);
+      if (statusFilter !== 'all') filtered = filtered.filter(u => u.status === statusFilter);
+
+      const tbody = document.getElementById('usersBody');
+      if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No users found</td></tr>';
+        return;
+      }
+      let html = '';
+      filtered.forEach((u, i) => {
+        const roleStyle = roleStyles[u.role] || '';
+        const statusColors = { approved: '#059669', pending: '#d97706', rejected: '#dc2626' };
+        const statusColor = statusColors[u.status] || '#64748b';
+        const isActive = u.active !== false;
+        html += `<tr style="${!isActive ? 'opacity:0.6;' : ''}">
+          <td>${i + 1}</td>
+          <td style="font-weight:600;">${u.name || '—'}</td>
+          <td>${u.email}</td>
+          <td><span style="${roleStyle}padding:4px 12px;border-radius:12px;font-size:0.75rem;font-weight:700;">${u.role}</span></td>
+          <td><span style="color:${statusColor};font-weight:700;text-transform:capitalize;">${u.status || '—'}</span></td>
+          <td>${isActive ? '✅' : '⏸️'}</td>
+          <td style="font-size:0.8rem;color:var(--text-light);">${u.lastLogin ? u.lastLogin.substring(0, 16) : 'Never'}</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              ${u.status !== 'approved' ? `<button class="btn btn-primary btn-sm" onclick="approveUser('${u.email}')">✅</button>` : ''}
+              ${isActive ? `<button class="btn btn-secondary btn-sm" onclick="pauseUser('${u.email}')" title="Pause">⏸️</button>` : `<button class="btn btn-primary btn-sm" onclick="resumeUser('${u.email}')" title="Resume">▶️</button>`}
+              <select onchange="changeRole('${u.email}', this.value)" style="padding:4px 6px;font-size:0.75rem;border:1px solid var(--border);border-radius:4px;">
+                <option value="DEVELOPER" ${u.role==='DEVELOPER'?'selected':''}>Dev</option>
+                <option value="SUPER_ADMIN" ${u.role==='SUPER_ADMIN'?'selected':''}>Super</option>
+                <option value="ADMIN" ${u.role==='ADMIN'?'selected':''}>Admin</option>
+                <option value="CANTEEN_STAFF" ${u.role==='CANTEEN_STAFF'?'selected':''}>Staff</option>
+              </select>
+              ${u.role !== 'DEVELOPER' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.email}')">🗑️</button>` : ''}
+            </div>
+          </td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+
+    // ─── User Actions ───────────────────────────────────────
+    async function approveUser(email) {
+      try {
+        const res = await fetch('/api/users/approve/' + encodeURIComponent(email), { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ User approved: ' + email);
+          await loadPendingUsers();
+          await loadAllUsers();
+        } else {
+          showToast('❌ ' + (data.error || 'Failed'));
+        }
+      } catch (e) { showToast('❌ Network error'); }
+    }
+
+    async function rejectUser(email) {
+      if (!confirm('Reject ' + email + '?')) return;
+      try {
+        const res = await fetch('/api/users/reject/' + encodeURIComponent(email), { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('❌ User rejected: ' + email);
+          await loadPendingUsers();
+          await loadAllUsers();
+        }
+      } catch (e) { showToast('❌ Network error'); }
+    }
+
+    async function pauseUser(email) {
+      try {
+        const res = await fetch('/api/users/pause/' + encodeURIComponent(email), { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('⏸️ User paused: ' + email);
+          await loadAllUsers();
+        }
+      } catch (e) { showToast('❌ Network error'); }
+    }
+
+    async function resumeUser(email) {
+      try {
+        const res = await fetch('/api/users/resume/' + encodeURIComponent(email), { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('▶️ User resumed: ' + email);
+          await loadAllUsers();
+        }
+      } catch (e) { showToast('❌ Network error'); }
+    }
+
+    async function deleteUser(email) {
+      if (!confirm('Delete user ' + email + '? This cannot be undone.')) return;
+      try {
+        const res = await fetch('/api/users/delete/' + encodeURIComponent(email), { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('🗑️ User deleted: ' + email);
+          await loadAllUsers();
+        } else {
+          showToast('❌ ' + (data.error || 'Cannot delete'));
+        }
+      } catch (e) { showToast('❌ Network error'); }
+    }
+
+    async function changeRole(email, role) {
+      try {
+        const res = await fetch('/api/users/role/' + encodeURIComponent(email), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid, email, name, role, active: true }),
+          body: JSON.stringify({ role }),
         });
         const data = await res.json();
         if (data.success) {
-          closeUserModal();
-          showToast('✅ User saved!');
-          await loadUsers();
-        } else {
-          alert(data.error || 'Error saving user');
+          showToast('✅ Role updated to ' + role);
+          await loadAllUsers();
         }
-      } catch (e) {
-        alert('Error saving user');
-      }
-    }
-
-    async function deleteUser(uid, email) {
-      if (!confirm(`Remove admin access for ${email}?`)) return;
-      try {
-        const res = await fetch(`/api/admin/users/${uid}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-          showToast('✅ User removed!');
-          await loadUsers();
-        } else {
-          alert(data.error || 'Error removing user');
-        }
-      } catch (e) {
-        alert('Error removing user');
-      }
+      } catch (e) { showToast('❌ Network error'); }
     }
 
     // ─── Quick Actions ──────────────────────────────────────
-    async function removeAllAdmins() {
-      if (!confirm('⚠️ This will remove ALL admin users except yourself (Developer). Continue?')) return;
-      if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+    async function approveAllPending() {
+      if (!confirm('Approve ALL pending users?')) return;
+      let count = 0;
+      for (const u of pendingUsers) {
+        try {
+          await fetch('/api/users/approve/' + encodeURIComponent(u.email), { method: 'POST' });
+          count++;
+        } catch(e) {}
+      }
+      showToast('✅ ' + count + ' user(s) approved');
+      await loadPendingUsers();
+      await loadAllUsers();
+    }
 
-      const currentUser = window.CanteenAuth?.getUser?.();
-      let removed = 0;
+    async function pauseAllNonDev() {
+      if (!confirm('Pause ALL non-developer users?')) return;
+      let count = 0;
       for (const u of allUsers) {
-        if (u.id !== currentUser?.uid && u.role !== 'DEVELOPER') {
+        if (u.role !== 'DEVELOPER' && u.active !== false) {
           try {
-            await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' });
-            removed++;
-          } catch (e) {}
+            await fetch('/api/users/pause/' + encodeURIComponent(u.email), { method: 'POST' });
+            count++;
+          } catch(e) {}
         }
       }
-      showToast(`✅ ${removed} admin(s) removed`);
-      await loadUsers();
+      showToast('⏸️ ' + count + ' user(s) paused');
+      await loadAllUsers();
     }
 
-    async function resetAllRoles() {
-      if (!confirm('Reset all admin roles to ADMIN? (Developer and Super Admin roles preserved)')) return;
-      let updated = 0;
+    async function resumeAllUsers() {
+      if (!confirm('Resume ALL paused users?')) return;
+      let count = 0;
       for (const u of allUsers) {
-        if (u.role !== 'DEVELOPER' && u.role !== 'SUPER_ADMIN') {
+        if (u.active === false) {
           try {
-            await fetch('/api/admin/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ uid: u.id, email: u.email, name: u.name, role: 'ADMIN', active: u.active !== false }),
-            });
-            updated++;
-          } catch (e) {}
+            await fetch('/api/users/resume/' + encodeURIComponent(u.email), { method: 'POST' });
+            count++;
+          } catch(e) {}
         }
       }
-      showToast(`✅ ${updated} role(s) reset`);
-      await loadUsers();
+      showToast('▶️ ' + count + ' user(s) resumed');
+      await loadAllUsers();
     }
 
-    async function viewAuditLogs() {
-      const section = document.getElementById('auditSection');
-      section.style.display = 'block';
-      try {
-        const res = await fetch('/api/admin/audit-logs');
-        if (res.ok) {
-          const logs = await res.json();
-          const tbody = document.getElementById('auditBody');
-          if (!logs || logs.length === 0) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No audit logs found.</td></tr>';
-            return;
-          }
-          let html = '';
-          logs.slice(0, 50).forEach(l => {
-            html += `<tr>
-              <td style="white-space:nowrap;">${l.timestamp || '—'}</td>
-              <td>${l.user_email || l.user_id || '—'}</td>
-              <td style="font-weight:600;">${l.action || '—'}</td>
-              <td>${l.resource_type || '—'}/${l.resource_id || ''}</td>
-              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${JSON.stringify(l.new_value || '')}">${l.action || '—'}</td>
-            </tr>`;
-          });
-          tbody.innerHTML = html;
-        }
-      } catch (e) {
-        console.error('Error loading audit logs:', e);
-      }
-    }
-
-    async function exportUserData() {
+    function exportUserData() {
       const data = JSON.stringify(allUsers, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `admin-users-export-${new Date().toISOString().substring(0, 10)}.json`;
+      a.download = 'users-export-' + new Date().toISOString().substring(0, 10) + '.json';
       a.click();
       URL.revokeObjectURL(url);
       showToast('✅ User data exported!');
     }
 
+    // ─── Add User Modal ─────────────────────────────────────
+    function showAddUserModal() {
+      document.getElementById('addName').value = '';
+      document.getElementById('addEmail').value = '';
+      document.getElementById('addPassword').value = '';
+      document.getElementById('addRole').value = 'ADMIN';
+      document.getElementById('addUserModal').style.display = 'flex';
+      document.getElementById('addName').focus();
+    }
+
+    function closeAddUserModal() {
+      document.getElementById('addUserModal').style.display = 'none';
+    }
+
+    async function addNewUser() {
+      const name = document.getElementById('addName').value.trim();
+      const email = document.getElementById('addEmail').value.trim();
+      const password = document.getElementById('addPassword').value;
+      const role = document.getElementById('addRole').value;
+
+      if (!name || !email || !password) { alert('All fields required'); return; }
+      if (password.length < 4) { alert('Password must be at least 4 characters'); return; }
+
+      try {
+        // Register the user
+        const regRes = await fetch('/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name }),
+        });
+        const regData = await regRes.json();
+
+        if (regData.success || regData.error === 'Email already registered') {
+          // If already registered, just approve
+          if (regData.error === 'Email already registered') {
+            await fetch('/api/users/approve/' + encodeURIComponent(email), { method: 'POST' });
+          }
+          // Set role
+          await fetch('/api/users/role/' + encodeURIComponent(email), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role }),
+          });
+          // Approve
+          await fetch('/api/users/approve/' + encodeURIComponent(email), { method: 'POST' });
+          closeAddUserModal();
+          showToast('✅ User added: ' + email);
+          await loadPendingUsers();
+          await loadAllUsers();
+        } else {
+          alert(regData.error || 'Failed to add user');
+        }
+      } catch (e) {
+        alert('Network error');
+      }
+    }
+
     // ─── Toast ──────────────────────────────────────────────
     function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2500);
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
     }
   </script>
   <script src="/date-clock.js"></script>

@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { initializeApp } = require('firebase/app');
 const {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
@@ -120,6 +121,7 @@ const C = {
   bookingSettings: 'booking_settings',
   subscription: 'subscription',
   paymentHistory: 'payment_history',
+  users: 'users',
 };
 
 // Get all docs - NO orderBy in Firestore (avoids composite index issues)
@@ -395,6 +397,19 @@ app.use('/api', (req, res, next) => {
 
   // Allow password reset for lockout recovery
   if (req.method === 'POST' && path === '/password/reset') return next();
+
+  // Allow user authentication endpoints (public)
+  if (req.method === 'POST' && path === '/users/register') return next();
+  if (req.method === 'POST' && path === '/users/login') return next();
+  if (req.method === 'POST' && path === '/users/verify') return next();
+  if (req.method === 'GET' && path === '/users/pending') return next();
+  if (req.method === 'GET' && path === '/users/all') return next();
+  if (req.method === 'POST' && path.startsWith('/users/approve/')) return next();
+  if (req.method === 'POST' && path.startsWith('/users/reject/')) return next();
+  if (req.method === 'POST' && path.startsWith('/users/pause/')) return next();
+  if (req.method === 'POST' && path.startsWith('/users/resume/')) return next();
+  if (req.method === 'POST' && path.startsWith('/users/delete/')) return next();
+  if (req.method === 'POST' && path.startsWith('/users/role/')) return next();
 
   // Allow public serial-register single entry lookup
   if (req.method === 'GET' && /^\/serial-register\/\d+/.test(path)) return next();
@@ -1454,9 +1469,225 @@ app.get('/api/admin/audit-logs', requireAuth, requirePermission('developer:manag
 });
 
 // ═══════════════════════════════════════════════════════════════════
+//  USER AUTHENTICATION & MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════
+
+// Simple hash function for passwords (SHA-256)
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(String(password)).digest('hex');
+}
+
+// Seed default developer account if no users exist
+async function seedDefaultDeveloper() {
+  try {
+    const users = await getAll(C.users);
+    if (users.length === 0) {
+      const defaultEmail = 'developer@canteen.com';
+      const defaultPw = 'admin123';
+      await setDocData(C.users, defaultEmail, {
+        email: defaultEmail,
+        name: 'Developer',
+        password: hashPassword(defaultPw),
+        role: 'DEVELOPER',
+        status: 'approved',
+        active: true,
+        createdAt: nowStr(),
+        updatedAt: nowStr(),
+      });
+      console.log(`\n  🛠️  Default developer account created:`);
+      console.log(`     Email: ${defaultEmail}`);
+      console.log(`     Password: ${defaultPw}`);
+      console.log(`     ⚠️  Change this password after first login!\n`);
+    }
+  } catch (err) {
+    console.error('Seed developer error:', err.message);
+  }
+}
+
+// ─── User Register ─────────────────────────────────────────
+app.post('/api/users/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    if (!email.includes('@')) return res.status(400).json({ error: 'Invalid email format' });
+
+    const emailLower = email.toLowerCase().trim();
+    const existing = await getDocById(C.users, emailLower);
+    if (existing) return res.status(409).json({ error: 'Email already registered' });
+
+    await setDocData(C.users, emailLower, {
+      email: emailLower,
+      name: (name || '').trim(),
+      password: hashPassword(password),
+      role: 'ADMIN',
+      status: 'pending',
+      active: true,
+      createdAt: nowStr(),
+      updatedAt: nowStr(),
+    });
+
+    res.json({ success: true, message: 'Account created! Waiting for developer approval.', status: 'pending' });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// ─── User Login ────────────────────────────────────────────
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+    const emailLower = email.toLowerCase().trim();
+    const user = await getDocById(C.users, emailLower);
+    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+
+    // Check password
+    const hashedInput = hashPassword(password);
+    if (hashedInput !== user.password) return res.status(401).json({ error: 'Invalid email or password' });
+
+    // Check if active
+    if (user.active === false) return res.status(403).json({ error: 'Your account has been paused. Contact developer.', status: 'paused' });
+
+    // Check approval status
+    if (user.status !== 'approved') return res.status(403).json({ error: 'Account pending approval. Wait for developer to approve.', status: user.status });
+
+    // Update last login
+    await updateDocData(C.users, emailLower, { lastLogin: nowStr(), updatedAt: nowStr() });
+
+    // Return user info (without password)
+    const { password: _, ...safeUser } = user;
+    res.json({ success: true, user: safeUser });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ─── User Verify (for auth.js) ─────────────────────────────
+app.post('/api/users/verify', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(401).json({ valid: false });
+
+    const emailLower = email.toLowerCase().trim();
+    const user = await getDocById(C.users, emailLower);
+    if (!user) return res.status(401).json({ valid: false });
+
+    const hashedInput = hashPassword(password);
+    if (hashedInput !== user.password) return res.status(401).json({ valid: false });
+    if (user.active === false) return res.status(403).json({ valid: false, error: 'Account paused' });
+    if (user.status !== 'approved') return res.status(403).json({ valid: false, error: 'Pending approval' });
+
+    const { password: _, ...safeUser } = user;
+    res.json({ valid: true, user: safeUser });
+  } catch (err) {
+    res.status(500).json({ valid: false });
+  }
+});
+
+// ─── Get pending users (developer only) ────────────────────
+app.get('/api/users/pending', async (req, res) => {
+  try {
+    const users = await getAll(C.users, [{ field: 'status', op: '==', value: 'pending' }]);
+    const safeUsers = users.map(({ password, ...u }) => u);
+    res.json(safeUsers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Get all users (developer only) ────────────────────────
+app.get('/api/users/all', async (req, res) => {
+  try {
+    const users = await getAll(C.users);
+    const safeUsers = users.map(({ password, ...u }) => u);
+    res.json(safeUsers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Approve user (developer only) ─────────────────────────
+app.post('/api/users/approve/:email', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const user = await getDocById(C.users, email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    await updateDocData(C.users, email, { status: 'approved', updatedAt: nowStr() });
+    res.json({ success: true, message: 'User approved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Reject user (developer only) ──────────────────────────
+app.post('/api/users/reject/:email', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const user = await getDocById(C.users, email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    await updateDocData(C.users, email, { status: 'rejected', updatedAt: nowStr() });
+    res.json({ success: true, message: 'User rejected' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Pause/Resume user (developer only) ────────────────────
+app.post('/api/users/pause/:email', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    await updateDocData(C.users, email, { active: false, updatedAt: nowStr() });
+    res.json({ success: true, message: 'User paused' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/resume/:email', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    await updateDocData(C.users, email, { active: true, updatedAt: nowStr() });
+    res.json({ success: true, message: 'User resumed' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Delete user (developer only) ──────────────────────────
+app.post('/api/users/delete/:email', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const user = await getDocById(C.users, email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.role === 'DEVELOPER') return res.status(400).json({ error: 'Cannot delete developer account' });
+    await deleteDocData(C.users, email);
+    res.json({ success: true, message: 'User deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Change user role (developer only) ─────────────────────
+app.post('/api/users/role/:email', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email).toLowerCase();
+    const { role } = req.body;
+    const validRoles = ['DEVELOPER', 'SUPER_ADMIN', 'ADMIN', 'CANTEEN_STAFF'];
+    if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    await updateDocData(C.users, email, { role, updatedAt: nowStr() });
+    res.json({ success: true, message: 'Role updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 //  SUBSCRIPTION & BILLING (Razorpay Integration)
 // ═══════════════════════════════════════════════════════════════════
-const crypto = require('crypto');
 
 // Subscription plan config (easy to change later)
 const SUBSCRIPTION_PLAN = {
@@ -1699,6 +1930,7 @@ app.get('/complaints', (_req, res) => res.sendFile(path.join(PUBLIC, 'complaints
 app.get('/feedback', (_req, res) => res.sendFile(path.join(PUBLIC, 'feedback.html')));
 app.get('/developer', (_req, res) => res.sendFile(path.join(PUBLIC, 'developer.html')));
 app.get('/subscription', (_req, res) => res.sendFile(path.join(PUBLIC, 'subscription.html')));
+app.get('/approval-pending', (_req, res) => res.sendFile(path.join(PUBLIC, 'approval-pending.html')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  VERCEL HANDLER + LOCAL DEV
@@ -1708,6 +1940,7 @@ const handler = async (req, res) => {
   if (!initialized) {
     try { await loadPrices(); } catch (e) { console.log('Seed prices:', e.message); }
     try { await seedDefaults(); } catch (e) { console.log('Seed defaults:', e.message); }
+    try { await seedDefaultDeveloper(); } catch (e) { console.log('Seed developer:', e.message); }
     // Run initial cleanup of old data (older than 1 year)
     cleanupOldData().catch(() => {});
     initialized = true;

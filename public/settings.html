@@ -320,6 +320,23 @@
     </div>
   </div>
 
+  <!-- ═══════════════ ACCOUNT & LOGOUT ═══════════════ -->
+  <section class="card settings-card">
+    <div class="section-header">
+      <h2>🚪 Account</h2>
+    </div>
+    <div style="padding:16px 0;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="width:48px;height:48px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;font-weight:700;" id="userAvatar">👤</div>
+        <div>
+          <div style="font-weight:700;font-size:1rem;" id="userName">Admin</div>
+          <div style="font-size:0.85rem;color:var(--text-light);" id="userEmail">admin@canteen.com</div>
+        </div>
+      </div>
+      <button class="btn btn-danger" onclick="doLogout()" style="width:100%;padding:14px;font-size:1rem;font-weight:700;">🚪 Logout</button>
+    </div>
+  </section>
+
   <!-- ═══════════════ PASSWORD MODAL ═══════════════ -->
   <div class="modal-overlay" id="passwordModal" style="display:none;">
     <div class="modal-content card modal-sm">
@@ -344,11 +361,38 @@
   <script>
     let authenticated = false;
 
+    // ─── User Info & Logout ─────────────────────────────────
+    function loadUserInfo() {
+      try {
+        const user = window.CanteenAuth?.getUser?.();
+        if (user) {
+          document.getElementById('userName').textContent = user.name || 'Admin';
+          document.getElementById('userEmail').textContent = user.email || '';
+          document.getElementById('userAvatar').textContent = (user.name || 'A').charAt(0).toUpperCase();
+        }
+      } catch(e) {}
+    }
+
+    function doLogout() {
+      if (confirm('Are you sure you want to logout?')) {
+        if (window.CanteenAuth?.logout) {
+          window.CanteenAuth.logout();
+        } else {
+          localStorage.removeItem('adminEmail');
+          localStorage.removeItem('adminPassword');
+          localStorage.removeItem('adminLoginTime');
+          localStorage.removeItem('adminUser');
+          window.location.href = '/auth';
+        }
+      }
+    }
+
     // ─── Init ───────────────────────────────────────────────
     (async function init() {
       const dRes = await fetch('/api/today');
       const d = await dRes.json();
 
+      loadUserInfo();
       await loadPrices();
       await loadBookingSettings();
       showPasswordModal();
