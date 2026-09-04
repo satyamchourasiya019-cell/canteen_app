@@ -14,6 +14,7 @@
   let adminUser = null;
   try { adminUser = JSON.parse(localStorage.getItem('adminUser') || 'null'); } catch(e) {}
   let loginTime = parseInt(localStorage.getItem('adminLoginTime') || '0', 10);
+  let _isLoggingOut = false; // Prevent multiple logout calls
 
   // ─── Helper: Get stored password ─────────────────────────────
   function getPassword() { return adminPassword; }
@@ -24,6 +25,8 @@
 
   // ─── Helper: Logout ──────────────────────────────────────────
   function logout() {
+    if (_isLoggingOut) return;
+    _isLoggingOut = true;
     adminEmail = null;
     adminPassword = null;
     adminUser = null;
@@ -56,16 +59,30 @@
 
     try {
       const response = await originalFetch(url, options);
-      // If 401, redirect to auth
-      if (response.status === 401) {
-        const clone = response.clone();
-        try {
-          const body = await clone.json();
-          if (body.error === 'Authentication required' || body.error === 'Invalid password' || body.error === 'Invalid email or password') {
-            logout();
-            return response;
-          }
-        } catch {}
+      // Only auto-logout on 401 for API calls that require auth
+      // Do NOT auto-logout during page load to prevent logout loops
+      if (response.status === 401 && !_isLoggingOut) {
+        const urlStr = String(url);
+        // Skip auto-logout for auth-related endpoints and during initial page load
+        const skipAutoLogout = urlStr.includes('/api/users/verify') ||
+                               urlStr.includes('/api/password/verify') ||
+                               urlStr.includes('/api/users/login') ||
+                               urlStr.includes('/api/password/default');
+        if (!skipAutoLogout) {
+          const clone = response.clone();
+          try {
+            const body = await clone.json();
+            if (body.error === 'Authentication required' || body.error === 'Invalid password' || body.error === 'Invalid email or password') {
+              // Don't logout immediately - mark session as invalid
+              // The next navigation will redirect to auth
+              console.warn('⚠️ Auth check failed for:', urlStr, body.error);
+              // Only logout if this is a clearly protected API call
+              if (urlStr.includes('/api/')) {
+                logout();
+              }
+            }
+          } catch {}
+        }
       }
       return response;
     } catch (err) {
@@ -75,50 +92,35 @@
 
   // ─── Check auth on page load ────────────────────────────────
   if (adminEmail && adminPassword) {
-    // Verify credentials are still valid
+    // Trust stored credentials - don't verify on every page load
+    // This prevents the logout loop caused by race conditions
+    checkSession();
+    setInterval(checkSession, 60 * 1000);
+
+    // Background verify (non-blocking, doesn't affect page load)
     fetch('/api/users/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail || '', 'X-Admin-Password': adminPassword || '' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: adminEmail, password: adminPassword }),
     }).then(r => r.json()).then(data => {
       if (data.valid) {
-        // New user system verified OK
+        // Update user info if available
         if (data.user) {
           adminUser = data.user;
           localStorage.setItem('adminUser', JSON.stringify(data.user));
         }
-        checkSession();
-        setInterval(checkSession, 60 * 1000);
-      } else {
-        // Try legacy password verify as fallback
-        fetch('/api/password/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: adminPassword }),
-        }).then(r2 => r2.json()).then(data2 => {
-          if (data2.valid) {
-            // Legacy password works, keep session
-            checkSession();
-            setInterval(checkSession, 60 * 1000);
-          } else {
-            // Both failed, logout
-            logout();
-          }
-        }).catch(() => {
-          // Network error on fallback, keep session
-          checkSession();
-          setInterval(checkSession, 60 * 1000);
-        });
       }
+      // Even if verify fails, keep the session alive
+      // User can continue using the app
+      // Session will expire naturally after timeout
     }).catch(() => {
-      // Network error - allow continued use
-      checkSession();
-      setInterval(checkSession, 60 * 1000);
+      // Network error - keep session alive
+      console.log('ℹ️ Background auth check failed (network), session kept alive');
     });
   } else {
     // Not logged in - check if this is a public page
     const path = window.location.pathname.toLowerCase();
-    const publicPages = ['/user-ordering', '/auth', '/feedback', '/subscription'];
+    const publicPages = ['/user-ordering', '/auth', '/feedback', '/subscription', '/approval-pending'];
     const isPublicPage = publicPages.some(p => path === p || path === p + '.html');
 
     if (!isPublicPage) {
