@@ -353,15 +353,15 @@ async function cleanupOldData() {
       await deleteDocData(C.pendingCarry, carry.id);
     }
 
-    // Clean old online orders (keep for 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    // Clean old online orders (keep for 2 days only)
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
     const oldOrders = await getAll(C.onlineOrders);
     let ordersDeleted = 0;
     for (const order of oldOrders) {
       if (order.created_at) {
         const orderDate = new Date(order.created_at);
-        if (orderDate < sixMonthsAgo) {
+        if (orderDate < twoDaysAgo) {
           await deleteDocData(C.onlineOrders, order.id);
           ordersDeleted++;
         }
@@ -406,6 +406,9 @@ app.use('/api', (req, res, next) => {
 
   // Allow public order tracking (new endpoint)
   if (req.method === 'GET' && path.startsWith('/orders/track/')) return next();
+
+  // Allow public order history by phone (for phone users)
+  if (req.method === 'GET' && path.startsWith('/orders/history/')) return next();
 
   // Allow public serial-register lookup
   if (req.method === 'GET' && path.startsWith('/serial-register/lookup/')) return next();
@@ -1096,6 +1099,27 @@ app.get('/api/orders/track/:orderId', async (req, res) => {
       total_amount: order.total_amount,
       created_at: order.created_at,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Public: Order History by phone (last 2 days) ──────
+app.get('/api/orders/history/:phone', async (req, res) => {
+  try {
+    const phone = req.params.phone;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    const allOrders = await getAll(C.onlineOrders);
+    const twoDaysAgo = new Date();
+twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const cutoffStr = twoDaysAgo.toISOString().substring(0, 10);
+    const myOrders = allOrders.filter(o => {
+      if (o.phone_number !== phone) return false;
+      if (o.created_at && o.created_at.substring(0, 10) < cutoffStr) return false;
+      return true;
+    }).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    myOrders.forEach(o => { try { o.items = JSON.parse(o.items); } catch (e) { o.items = []; } });
+    res.json(myOrders);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2083,6 +2107,7 @@ app.get('/developer', (_req, res) => res.sendFile(path.join(PUBLIC, 'developer.h
 app.get('/subscription', (_req, res) => res.sendFile(path.join(PUBLIC, 'subscription.html')));
 app.get('/approval-pending', (_req, res) => res.sendFile(path.join(PUBLIC, 'approval-pending.html')));
 app.get('/qr-links', (_req, res) => res.sendFile(path.join(PUBLIC, 'qr-links.html')));
+app.get('/order-history', (_req, res) => res.sendFile(path.join(PUBLIC, 'order-history.html')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  VERCEL HANDLER + LOCAL DEV

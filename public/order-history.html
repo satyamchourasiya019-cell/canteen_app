@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>My Orders - Canteen</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="My Orders" />
+  <link rel="apple-touch-icon" href="/logo.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#f0f2f5;--card:#fff;--primary:#2563eb;--primary-dark:#1d4ed8;--accent:#059669;--danger:#dc2626;--text:#1e293b;--text-light:#64748b;--border:#e2e8f0;--radius:12px}
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:20px}
+    .app-header{background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);color:#fff;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(37,99,235,0.25);position:sticky;top:0;z-index:100}
+    .app-header h1{font-size:1.3rem;font-weight:700}
+    .app-header p{font-size:0.85rem;opacity:0.85;margin-top:4px}
+    .container{max-width:600px;margin:0 auto;padding:16px}
+    .phone-form{background:#fff;border-radius:var(--radius);border:2px solid var(--border);padding:24px;margin-top:16px}
+    .phone-form h2{font-size:1.1rem;margin-bottom:16px;color:var(--primary)}
+    .form-row{display:flex;gap:10px}
+    .form-row input{flex:1;padding:14px 16px;font-size:1.1rem;font-weight:600;border:2px solid var(--border);border-radius:10px;outline:none}
+    .form-row input:focus{border-color:var(--primary)}
+    .form-row button{padding:14px 20px;font-size:1rem;font-weight:700;border:none;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer;white-space:nowrap}
+    .form-row button:disabled{opacity:0.5;cursor:not-allowed}
+    .orders-list{margin-top:16px}
+    .order-card{background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;transition:border-color 0.3s}
+    .order-card.flash{animation:pulse 1s ease 2}
+    @keyframes pulse{0%,100%{border-color:var(--border)}50%{border-color:var(--primary)}}
+    .order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+    .order-id{font-size:1.1rem;font-weight:800;color:var(--primary)}
+    .order-time{font-size:0.8rem;color:var(--text-light);font-weight:600}
+    .status-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;text-transform:uppercase}
+    .s-pending{background:#fef3c7;color:#92400e;border:2px solid #fcd34d}
+    .s-accepted{background:#dbeafe;color:#1e40af;border:2px solid #93c5fd}
+    .s-preparing{background:#ffedd5;color:#9a3412;border:2px solid #fdba74}
+    .s-ready{background:#d1fae5;color:#065f46;border:2px solid #6ee7b7}
+    .s-completed{background:#f1f5f9;color:#475569;border:2px solid #cbd5e1}
+    .s-cancelled{background:#fee2e2;color:#991b1b;border:2px solid #fca5a5}
+    .order-items{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px}
+    .order-items h4{font-size:0.75rem;color:var(--text-light);text-transform:uppercase;margin-bottom:6px}
+    .item-row{display:flex;justify-content:space-between;padding:3px 0;font-size:0.9rem}
+    .item-name{font-weight:600}
+    .item-qty{color:var(--primary);font-weight:700}
+    .order-total{display:flex;justify-content:space-between;padding-top:8px;border-top:2px solid var(--primary);margin-top:8px;font-weight:800}
+    .order-total .amount{color:var(--accent);font-size:1.1rem}
+    .tracking{margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+    .tracking h4{font-size:0.75rem;color:var(--text-light);text-transform:uppercase;margin-bottom:8px}
+    .tracking-steps{display:flex;gap:4px;flex-wrap:wrap}
+    .t-step{padding:4px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;background:#f1f5f9;color:#94a3b8}
+    .t-step.done{background:#d1fae5;color:#065f46}
+    .t-step.active{background:var(--primary);color:#fff;animation:glow 1.5s ease-in-out infinite}
+    @keyframes glow{0%,100%{box-shadow:0 0 0 rgba(37,99,235,0)}50%{box-shadow:0 0 12px rgba(37,99,235,0.4)}}
+    .new-order-btn{display:block;width:100%;padding:16px;margin-top:16px;font-size:1rem;font-weight:700;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--accent),#047857);color:#fff;cursor:pointer;text-align:center;text-decoration:none}
+    .empty-msg{text-align:center;padding:40px 20px;color:var(--text-light);font-size:1rem}
+    .empty-msg .icon{font-size:3rem;margin-bottom:12px}
+    .info-box{background:#eff6ff;border:2px solid #93c5fd;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#1e40af}
+    @media(max-width:480px){.container{padding:12px}.order-card{padding:12px}}
+  </style>
+</head>
+<body>
+  <div class="app-header">
+    <h1>🍽️ My Orders</h1>
+    <p>Track your canteen orders — last 2 days</p>
+  </div>
+
+  <div class="container">
+    <!-- Phone Number Form -->
+    <div class="phone-form" id="phoneForm">
+      <h2>📱 Enter Your Phone Number</h2>
+      <div class="info-box">Enter the phone number you used while placing the order to see your order history and track status.</div>
+      <div class="form-row">
+        <input type="tel" id="phoneInput" placeholder="Enter phone number" autocomplete="tel" />
+        <button onclick="searchOrders()" id="searchBtn">🔍 Search</button>
+      </div>
+    </div>
+
+    <!-- Orders List -->
+    <div class="orders-list" id="ordersList" style="display:none;"></div>
+
+    <!-- New Order Button -->
+    <a href="/user-ordering" class="new-order-btn" id="newOrderBtn" style="display:none;">🛒 Place New Order</a>
+  </div>
+
+  <script>
+    let myOrders = [];
+    let pollIntervals = {};
+
+    // Check if phone number was already entered
+    const savedPhone = localStorage.getItem('orderPhone');
+    if (savedPhone) {
+      document.getElementById('phoneInput').value = savedPhone;
+      searchOrders();
+    }
+
+    async function searchOrders() {
+      const phone = document.getElementById('phoneInput').value.trim();
+      if (!phone) {
+        alert('Please enter your phone number');
+        return;
+      }
+      if (phone.length < 6) {
+        alert('Please enter a valid phone number');
+        return;
+      }
+
+      localStorage.setItem('orderPhone', phone);
+      const btn = document.getElementById('searchBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳';
+
+      try {
+        const res = await fetch(`/api/orders/history/${phone}`);
+        myOrders = await res.json();
+        renderOrders();
+        document.getElementById('phoneForm').style.display = 'none';
+        document.getElementById('ordersList').style.display = 'block';
+        document.getElementById('newOrderBtn').style.display = 'block';
+
+        // Start polling each active order
+        myOrders.forEach(o => {
+          if (o.status !== 'completed' && o.status !== 'cancelled') {
+            startPolling(o.order_id);
+          }
+        });
+      } catch (err) {
+        alert('Error fetching orders. Please try again.');
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🔍 Search';
+    }
+
+    function renderOrders() {
+      const container = document.getElementById('ordersList');
+      if (!myOrders.length) {
+        container.innerHTML = '<div class="empty-msg"><div class="icon">📭</div><h3>No Orders Found</h3><p style="margin-top:8px;">No orders found for this phone number in the last 2 days.</p></div>';
+        return;
+      }
+
+      let html = '<div style="margin-bottom:12px;font-size:0.9rem;color:var(--text-light);font-weight:600;">Found ' + myOrders.length + ' order(s) — auto-refreshes every 5 seconds</div>';
+
+      for (const order of myOrders) {
+        const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+        const time = order.created_at ? formatTime(order.created_at) : '—';
+        const date = order.created_at ? order.created_at.substring(0, 10) : '';
+
+        html += `<div class="order-card" id="card-${order.order_id}">
+          <div class="order-header">
+            <span class="order-id">#${order.order_id}</span>
+            <span class="status-badge s-${order.status}" id="badge-${order.order_id}">${(order.status || 'pending').toUpperCase()}</span>
+            <span class="order-time">🕐 ${time} • ${date}</span>
+          </div>
+          <div class="order-items">
+            <h4>📋 Ordered Items</h4>
+            ${items.map(i => '<div class="item-row"><span class="item-name">' + (i.icon||'') + ' ' + i.name + '</span><span class="item-qty">× ' + (i.quantity || 1) + '</span></div>').join('')}
+            <div class="order-total"><span>Total</span><span class="amount">₹' + (order.total_amount || 0).toLocaleString('en-IN') + '</span></div>
+          </div>
+          <div class="tracking">
+            <h4>📍 Order Status</h4>
+            <div class="tracking-steps" id="tracking-${order.order_id}">
+              ${renderTrackingSteps(order.status)}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderTrackingSteps(status) {
+      const steps = ['pending','accepted','preparing','ready','completed'];
+      const idx = steps.indexOf(status || 'pending');
+      const emojis = ['🟡','🔵','🟠','🟢','⚪'];
+      const labels = ['Pending','Accepted','Preparing','Ready','Done'];
+      return steps.map((s, i) => {
+        let cls = 't-step';
+        if (i < idx) cls += ' done';
+        if (i === idx) cls += ' active';
+        return '<span class="' + cls + '">' + emojis[i] + ' ' + labels[i] + '</span>';
+      }).join('');
+    }
+
+    function startPolling(orderId) {
+      if (pollIntervals[orderId]) clearInterval(pollIntervals[orderId]);
+      pollIntervals[orderId] = setInterval(async () => {
+        try {
+          const res = await fetch('/api/orders/track/' + orderId);
+          if (res.ok) {
+            const order = await res.json();
+            if (order && order.status) {
+              updateOrderStatus(orderId, order.status);
+            }
+          }
+        } catch(e) {}
+      }, 5000);
+    }
+
+    function updateOrderStatus(orderId, status) {
+      // Update badge
+      const badge = document.getElementById('badge-' + orderId);
+      if (badge) {
+        const oldText = badge.textContent;
+        const newText = (status || 'pending').toUpperCase();
+        badge.textContent = newText;
+        badge.className = 'status-badge s-' + status;
+        // Flash if status changed
+        if (oldText !== newText) {
+          const card = document.getElementById('card-' + orderId);
+          if (card) { card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 2000); }
+        }
+      }
+      // Update tracking steps
+      const tracking = document.getElementById('tracking-' + orderId);
+      if (tracking) {
+        tracking.innerHTML = renderTrackingSteps(status);
+      }
+      // Stop polling if completed/cancelled
+      if (status === 'completed' || status === 'cancelled') {
+        if (pollIntervals[orderId]) { clearInterval(pollIntervals[orderId]); delete pollIntervals[orderId]; }
+      }
+    }
+
+    function formatTime(ts) {
+      try {
+        let d;
+        if (ts && ts.includes(' ') && !ts.includes('T')) {
+          const parts = ts.split(' ');
+          const dp = parts[0].split('-');
+          const tp = (parts[1] || '00:00:00').split(':');
+          d = new Date(dp[0], dp[1]-1, dp[2], tp[0], tp[1], tp[2] || 0);
+        } else {
+          d = new Date(ts);
+        }
+        return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      } catch(e) { return ts || '—'; }
+    }
+
+    document.getElementById('phoneInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchOrders();
+    });
+  </script>
+</body>
+</html>
