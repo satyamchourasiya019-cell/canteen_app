@@ -1236,6 +1236,44 @@ app.get('/api/orders/stats', (req, res) => {
   }
 });
 
+// ─── Track single order by order_id (for phone users) ─────────
+app.get('/api/orders/track/:orderId', (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    if (!orderId || !orderId.startsWith('ORD-')) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+    const order = db.prepare('SELECT * FROM online_orders WHERE order_id = ?').get(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    try { order.items = JSON.parse(order.items); } catch (e) { order.items = []; }
+    res.json({
+      order_id: order.order_id,
+      status: order.status,
+      items: order.items,
+      total_amount: order.total_amount,
+      created_at: order.created_at,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Order history by phone number (last 2 days) ─────────────
+app.get('/api/orders/history/:phone', (req, res) => {
+  try {
+    const phone = req.params.phone;
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const cutoffStr = twoDaysAgo.toISOString().substring(0, 10);
+    const orders = db.prepare('SELECT * FROM online_orders WHERE phone_number = ? AND DATE(created_at) >= ? ORDER BY created_at DESC').all(phone, cutoffStr);
+    orders.forEach(o => { try { o.items = JSON.parse(o.items); } catch (e) { o.items = []; } });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════
 //  MENU ITEMS APIs
 // ═══════════════════════════════════════════════════════════════════
