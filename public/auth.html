@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Login - Digital Canteen Book</title>
   <link rel="icon" type="image/png" href="/icon-192.png" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -102,10 +105,29 @@
         <strong>🔒 Secure Access Only</strong>
         All accounts require developer approval before activation.
       </div>
+      <p style="text-align:center;margin-top:16px;">
+        <a href="#" onclick="fixDeveloperAccount()" style="font-size:0.78rem;color:#94a3b8;text-decoration:none;">🛠️ First time setup? Fix developer account</a>
+      </p>
     </div>
   </div>
 
   <script>
+    // ─── Fix Developer Account (first-time setup) ─────────
+    async function fixDeveloperAccount() {
+      if (!confirm('This will fix the developer account and remove all other users. Continue?')) return;
+      try {
+        const res = await fetch('/api/setup/fix-developer');
+        const data = await res.json();
+        if (data.success) {
+          showSuccess('✅ ' + data.message + '\n\nEmail: ' + data.developer.email + '\nPassword: ' + data.developer.password + '\n\nNow login with these credentials!');
+        } else {
+          showError('❌ ' + (data.error || 'Failed'));
+        }
+      } catch(e) {
+        showError('❌ Network error. Try again.');
+      }
+    }
+
     // ─── Tab Switching ──────────────────────────────────────
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

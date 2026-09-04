@@ -2088,6 +2088,37 @@ app.get('/api/auth/verify', requireAuth, (req, res) => {
   res.json({ valid: true, user: { uid: req.user.uid, email: req.user.email, role: req.user.role, name: req.user.name } });
 });
 
+// ─── Setup: Fix developer account + remove all other users ──
+app.get('/api/setup/fix-developer', async (_req, res) => {
+  try {
+    const devEmail = 'sattu@developer.com';
+    const devPw = 'developer@2026';
+    // Create/update developer account with correct role
+    await setDocData(C.users, devEmail, {
+      email: devEmail,
+      name: 'Satu (Developer)',
+      password: hashPassword(devPw),
+      role: 'DEVELOPER',
+      status: 'approved',
+      active: true,
+      createdAt: nowStr(),
+      updatedAt: nowStr(),
+    });
+    // Remove ALL other users
+    const allUsers = await getAll(C.users);
+    let removed = 0;
+    for (const u of allUsers) {
+      if (u.id !== devEmail) {
+        await deleteDocData(C.users, u.id);
+        removed++;
+      }
+    }
+    res.json({ success: true, message: `Developer account fixed. ${removed} other user(s) removed.`, developer: { email: devEmail, password: devPw } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Missing page routes ─────────────────────────────────────
 app.get('/entry', (_req, res) => res.sendFile(path.join(PUBLIC, 'entry.html')));
 app.get('/emp-records', (_req, res) => res.sendFile(path.join(PUBLIC, 'emp-records.html')));
