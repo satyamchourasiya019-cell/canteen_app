@@ -150,8 +150,7 @@
           <button class="qty-btn plus" onclick="changeQty('night_snack_qty',1)">+</button>
         </div>
       </div>
-      <!-- Custom items loaded dynamically from settings -->
-      <div id="customItemsContainer"></div>
+      <!-- Custom items loaded dynamically from settings (added directly to .food-grid) -->
     </div>
 
     <!-- ─── Other / Special Order ─── -->
@@ -308,22 +307,27 @@
         const res = await fetch('/api/entry-menu');
         const allItems = await res.json();
         customItems = allItems.filter(i => i.type === 'entry_menu');
-        const container = document.getElementById('customItemsContainer');
-        let html = '';
+        // Remove old custom items from grid (keep only built-in items)
+        const foodGrid = document.querySelector('.food-grid');
+        const oldCustom = foodGrid.querySelectorAll('.food-item[data-key^="custom_"]');
+        oldCustom.forEach(el => el.remove());
+        // Add each custom item as a direct child of .food-grid so CSS Grid positions them properly
         customItems.forEach(item => {
           const fieldKey = 'custom_' + item.id;
           customQty[fieldKey] = 0;
-          html += '<div class="food-item" data-key="' + fieldKey + '">' +
-            '<span class="food-icon">' + item.icon + '</span>' +
+          const div = document.createElement('div');
+          div.className = 'food-item';
+          div.setAttribute('data-key', fieldKey);
+          div.innerHTML = '<span class="food-icon">' + item.icon + '</span>' +
             '<span class="food-name">' + item.name + '</span>' +
             '<span class="food-price" style="font-weight:700;color:var(--accent);">₹' + item.price + '</span>' +
             '<div class="qty-control">' +
             '<button class="qty-btn minus" onclick="changeCustomQty(\'' + fieldKey + '\',-1)">−</button>' +
             '<span class="qty-val" id="val_' + fieldKey + '">0</span>' +
             '<button class="qty-btn plus" onclick="changeCustomQty(\'' + fieldKey + '\',1)">+</button>' +
-            '</div></div>';
+            '</div>';
+          foodGrid.appendChild(div);
         });
-        container.innerHTML = html;
       } catch(e) {
         console.error('Error loading custom items:', e);
       }
