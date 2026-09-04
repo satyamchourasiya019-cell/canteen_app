@@ -393,6 +393,9 @@ app.use('/api', (req, res, next) => {
   if (req.method === 'GET' && path === '/subscription') return next();
   if (req.method === 'GET' && path === '/subscription/check') return next();
 
+  // Allow password reset for lockout recovery
+  if (req.method === 'POST' && path === '/password/reset') return next();
+
   // Allow public serial-register single entry lookup
   if (req.method === 'GET' && /^\/serial-register\/\d+/.test(path)) return next();
 
@@ -529,6 +532,24 @@ app.post('/api/password/verify', async (req, res) => {
     } else {
       res.status(500).json({ valid: false, error: 'Auth service unavailable' });
     }
+  }
+});
+
+// ─── Public: Reset password to default (for lockout recovery) ──
+app.post('/api/password/reset', async (req, res) => {
+  try {
+    const { currentPassword } = req.body;
+    // Only allow reset if current password matches (or DB is unavailable)
+    const row = await getDocById(C.settings, 'password');
+    const storedPw = row ? String(row.value) : '988388';
+    if (currentPassword && String(currentPassword) === storedPw) {
+      await setDocData(C.settings, 'password', { key: 'password', value: '988388' });
+      res.json({ success: true, message: 'Password reset to 988388' });
+    } else {
+      res.status(400).json({ error: 'Current password is incorrect' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Reset failed' });
   }
 });
 

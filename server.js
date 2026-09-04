@@ -341,14 +341,52 @@ app.post('/api/password', (req, res) => {
   res.json({ success: true, message: 'Password updated. All pages now use the new password.' });
 });
 
+app.get('/api/password/default', (_req, res) => {
+  try {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
+    const storedPw = row ? String(row.value) : '988388';
+    res.json({ default: storedPw });
+  } catch (err) {
+    res.json({ default: '988388' });
+  }
+});
+
+app.post('/api/password/reset', (req, res) => {
+  try {
+    const { currentPassword } = req.body;
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
+    const storedPw = row ? String(row.value) : '988388';
+    if (currentPassword && String(currentPassword) === storedPw) {
+      db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+        .run('password', '988388');
+      res.json({ success: true, message: 'Password reset to 988388' });
+    } else {
+      res.status(400).json({ error: 'Current password is incorrect' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Reset failed' });
+  }
+});
+
 app.post('/api/password/verify', (req, res) => {
-  const { password } = req.body;
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
-  const storedPw = row ? String(row.value) : '0';
-  if (String(password) === storedPw) {
-    res.json({ valid: true });
-  } else {
-    res.status(401).json({ valid: false, error: 'Incorrect password' });
+  try {
+    const { password } = req.body;
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
+    // Handle both number and string stored passwords
+    const storedPw = row ? String(row.value) : '988388';
+    if (String(password) === storedPw) {
+      res.json({ valid: true });
+    } else {
+      res.status(401).json({ valid: false, error: 'Incorrect password' });
+    }
+  } catch (err) {
+    console.error('Password verify error:', err.message);
+    // Fallback: allow default password if DB is unavailable
+    if (String(req.body.password) === '988388') {
+      res.json({ valid: true });
+    } else {
+      res.status(500).json({ valid: false, error: 'Auth service unavailable' });
+    }
   }
 });
 

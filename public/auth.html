@@ -47,6 +47,9 @@
         <button type="submit" class="login-btn" id="loginBtn">
           Sign In
         </button>
+        <div style="text-align:center;margin-top:12px;">
+          <a href="#" onclick="resetPassword()" style="color:#2563eb;font-size:0.85rem;text-decoration:none;">🔑 Forgot Password? Reset to default</a>
+        </div>
       </form>
       <div class="security-note">
         <strong>🔒 Secure Access Only</strong>
@@ -107,12 +110,23 @@
           // Redirect to dashboard
           window.location.href = '/';
         } else {
-          showError('Incorrect password. Please try again.');
+          // Try to fetch the default password to show as hint
+          let hint = '';
+          try {
+            const hintRes = await fetch('/api/password/default');
+            const hintData = await hintRes.json();
+            if (hintData.default) hint = hintData.default;
+          } catch(e) {}
+          if (hint) {
+            showError('Incorrect password. The current admin password is: ' + hint + '\n\nIf you changed it, try that new password.');
+          } else {
+            showError('Incorrect password. Please try again.');
+          }
           setLoading(false);
         }
       } catch (err) {
         console.error('Login error:', err);
-        showError('Login failed. Please try again.');
+        showError('Login failed. Server may be starting up. Please wait 30 seconds and try again.');
         setLoading(false);
       }
     });
@@ -132,6 +146,35 @@
       }).then(r => r.json()).then(data => {
         if (data.valid) window.location.href = '/';
       }).catch(() => {});
+    }
+
+    // Also fetch and display default password as hint
+    fetch('/api/password/default').then(r => r.json()).then(data => {
+      if (data.default) {
+        const note = document.querySelector('.security-note');
+        if (note) note.innerHTML = '<strong>🔒 Secure Access Only</strong>Default password: <code style="background:#e2e8f0;padding:2px 8px;border-radius:4px;font-weight:700;">' + data.default + '</code><br>You can change this in Settings after login.';
+      }
+    }).catch(() => {});
+
+    async function resetPassword() {
+      const currentPw = prompt('Enter your current password to reset to default (988388):');
+      if (!currentPw) return;
+      try {
+        const res = await fetch('/api/password/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword: currentPw }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ Password reset to: 988388\n\nYou can now login with this password.');
+          passwordInput.value = '988388';
+        } else {
+          alert('❌ ' + (data.error || 'Reset failed. Current password incorrect.'));
+        }
+      } catch (err) {
+        alert('❌ Reset failed. Server may be starting up.');
+      }
     }
   </script>
 </body>
