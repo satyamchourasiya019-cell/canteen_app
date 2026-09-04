@@ -142,18 +142,21 @@
       </div>
     </div>
 
-    <!-- Setup Instructions (visible when Razorpay not configured) -->
-    <div class="setup-instructions" id="setupInstructions" style="display:none;">
-      <h4>⚙️ Razorpay Setup Instructions</h4>
-      <p>To enable payments, add these environment variables to your hosting platform:</p>
-      <ol>
-        <li>Go to <strong>Razorpay Dashboard</strong> → Settings → API Keys</li>
-        <li>Generate a new key pair (or use existing)</li>
-        <li>Add these environment variables in Vercel/hosting:</li>
-      </ol>
-      <p><code>RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxx</code></p>
-      <p><code>RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx</code></p>
-      <p style="margin-top:8px;"><strong>⚠️ NEVER put the Key Secret in frontend code!</strong> It's only on the server.</p>
+    <!-- Razorpay Setup (visible when not configured) -->
+    <div class="sub-card" id="setupSection" style="display:none;">
+      <h3 style="margin-bottom:16px;">⚙️ Razorpay Setup</h3>
+      <p style="color:var(--text-light);margin-bottom:16px;font-size:0.9rem;">Enter your Razorpay API keys to enable online payments. Get keys from <a href="https://dashboard.razorpay.com/app/keys" target="_blank" style="color:#2563eb;font-weight:600;">Razorpay Dashboard → API Keys</a></p>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.8rem;font-weight:700;color:#64748b;margin-bottom:6px;">RAZORPAY KEY ID</label>
+        <input type="text" id="rpKeyId" placeholder="rzp_test_xxxxxxxxxxxxx" style="width:100%;padding:12px;font-size:0.95rem;border:2px solid #e2e8f0;border-radius:8px;font-family:monospace;" />
+      </div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.8rem;font-weight:700;color:#64748b;margin-bottom:6px;">RAZORPAY KEY SECRET</label>
+        <input type="password" id="rpKeySecret" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" style="width:100%;padding:12px;font-size:0.95rem;border:2px solid #e2e8f0;border-radius:8px;font-family:monospace;" />
+      </div>
+      <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:14px;">⚠️ Key Secret is stored securely on the server. Never shared with anyone.</p>
+      <button onclick="saveRazorpayConfig()" id="saveRpBtn" style="width:100%;padding:12px;font-size:1rem;font-weight:700;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:#fff;cursor:pointer;">💾 Save Razorpay Configuration</button>
+      <p id="rpSetupStatus" style="margin-top:10px;font-size:0.85rem;display:none;"></p>
     </div>
   </div>
 
@@ -248,9 +251,12 @@
         renewBtn.className = 'renew-btn active';
       }
 
-      // Show setup instructions if Razorpay not configured
-      if (s.razorpayKeyId === 'rzp_test_demo' || !s.razorpayKeyId) {
-        document.getElementById('setupInstructions').style.display = 'block';
+      // Show setup section if Razorpay not configured
+      if (!s.razorpayConfigured && !s.razorpayKeyId) {
+        document.getElementById('setupSection').style.display = 'block';
+        document.getElementById('rpKeyId').value = s.razorpayKeyId || '';
+      } else {
+        document.getElementById('setupSection').style.display = 'none';
       }
     }
 
@@ -372,6 +378,51 @@
         btn.disabled = false;
         renderSubscription();
       }
+    }
+
+    // ─── Save Razorpay Config ───────────────────────────────
+    async function saveRazorpayConfig() {
+      const keyId = document.getElementById('rpKeyId').value.trim();
+      const keySecret = document.getElementById('rpKeySecret').value.trim();
+      const status = document.getElementById('rpSetupStatus');
+      const btn = document.getElementById('saveRpBtn');
+
+      if (!keyId || !keySecret) {
+        status.textContent = '❌ Please enter both Key ID and Key Secret';
+        status.style.display = 'block';
+        status.style.color = '#dc2626';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Saving...';
+
+      try {
+        const res = await fetch('/api/razorpay/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyId, keySecret }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          status.textContent = '✅ Razorpay configured successfully! You can now make payments.';
+          status.style.display = 'block';
+          status.style.color = '#059669';
+          document.getElementById('rpKeySecret').value = '';
+          // Refresh subscription data
+          setTimeout(() => { location.reload(); }, 2000);
+        } else {
+          status.textContent = '❌ ' + (data.error || 'Failed to save');
+          status.style.display = 'block';
+          status.style.color = '#dc2626';
+        }
+      } catch (err) {
+        status.textContent = '❌ Network error. Please try again.';
+        status.style.display = 'block';
+        status.style.color = '#dc2626';
+      }
+      btn.disabled = false;
+      btn.textContent = '💾 Save Razorpay Configuration';
     }
 
     // ─── Toast ──────────────────────────────────────────────

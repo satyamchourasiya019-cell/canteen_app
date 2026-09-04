@@ -392,7 +392,7 @@ function sendSSE(event, data) {
 //  ADMIN API PROTECTION MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════
 // Public endpoints that do NOT require authentication
-const PUBLIC_GET_PATHS = ['/today', '/prices', '/menu/available', '/booking-open', '/serial-register/lookup', '/password', '/password/default', '/serial-register/stats/all', '/menu'];
+const PUBLIC_GET_PATHS = ['/today', '/prices', '/menu/available', '/booking-open', '/serial-register/lookup', '/password', '/password/default', '/serial-register/stats/all', '/menu', '/razorpay/config'];
 const PUBLIC_POST_PATHS = ['/orders', '/complaints', '/password/verify', '/feedback'];
 
 app.use('/api', (req, res, next) => {
@@ -1793,14 +1793,32 @@ const SUBSCRIPTION_PLAN = {
 // IMPORTANT: Set these in your Vercel/Hosting environment variables:
 //   RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxx
 //   RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_TXuUAyubCkgSGS';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
+
+// Helper: Get Razorpay config (env vars OR Firestore settings)
+async function getRazorpayConfig() {
+  let keyId = RAZORPAY_KEY_ID;
+  let keySecret = RAZORPAY_KEY_SECRET;
+  // If env vars not set, try Firestore settings
+  if (!keySecret) {
+    try {
+      const config = await getDocById(C.settings, 'razorpay_config');
+      if (config) {
+        if (config.keyId) keyId = config.keyId;
+        if (config.keySecret) keySecret = config.keySecret;
+      }
+    } catch (err) {}
+  }
+  return { keyId, keySecret };
+}
 
 // Helper: Make Razorpay API call
 async function razorpayAPI(method, endpoint, data = null) {
   const https = require('https');
+  const config = await getRazorpayConfig();
   return new Promise((resolve, reject) => {
-    const auth = Buffer.from(RAZORPAY_KEY_ID + ':' + RAZORPAY_KEY_SECRET).toString('base64');
+    const auth = Buffer.from(config.keyId + ':' + config.keySecret).toString('base64');
     const options = {
       hostname: 'api.razorpay.com',
       path: '/v1' + endpoint,
@@ -1828,8 +1846,9 @@ async function razorpayAPI(method, endpoint, data = null) {
 }
 
 // Helper: Verify Razorpay payment signature
-function verifyRazorpaySignature(orderId, paymentId, signature) {
-  if (!RAZORPAY_KEY_SECRET) return false;
+async function verifyRazorpaySignature(orderId, paymentId, signature) {
+  const config = await getRazorpayConfig();
+  if (!config.keySecret) return false;
   const body = orderId + '|' + paymentId;
   const expectedSignature = crypto
     .createHmac('sha256', RAZORPAY_KEY_SECRET)
@@ -1888,7 +1907,8 @@ app.get('/api/subscription', async (_req, res) => {
       daysRemaining,
       renewWarning,
       monthlyPrice: SUBSCRIPTION_PLAN.amount,
-      razorpayKeyId: RAZORPAY_KEY_ID || 'rzp_test_demo',
+      razorpayKeyId: RAZORPAY_KEY_ID || 'rzp_test_TXuUAyubCkgSGS',
+      razorpayConfigured: !!(RAZORPAY_KEY_SECRET || (await getDocById(C.settings, 'razorpay_config'))),
     });
   } catch (err) {
     console.error('Subscription fetch error:', err);
@@ -1899,8 +1919,13 @@ app.get('/api/subscription', async (_req, res) => {
 // ─── Subscription API: Create Razorpay Order (requires auth) ──
 app.post('/api/subscription/create-order', async (req, res) => {
   try {
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      return res.status(503).json({ error: 'Razorpay not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables.' });
+    const config = await getRazorpayConfig();
+    if (!config.keySecret) {
+      return res.status(503).json({ 
+        error: 'Razorpay not configured. Please set RAZORPAY_KEY_SECRET in Settings page or as a Vercel environment variable.',
+        setupRequired: true,
+        keyId: config.keyId,
+      });
     }
     const order = await razorpayAPI('POST', '/orders', {
       amount: SUBSCRIPTION_PLAN.amount,
@@ -1915,7 +1940,7 @@ app.post('/api/subscription/create-order', async (req, res) => {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: RAZORPAY_KEY_ID,
+      keyId: config.keyId,
     });
   } catch (err) {
     console.error('Create order error:', err);
@@ -1931,7 +1956,7 @@ app.post('/api/subscription/verify-payment', async (req, res) => {
       return res.status(400).json({ error: 'Missing payment details' });
     }
     // SECURITY: Verify payment signature on server-side
-    const isValid = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+    const isValid = await verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid payment signature. Payment verification failed.' });
     }
@@ -1989,6 +2014,40 @@ app.get('/api/subscription/check', async (_req, res) => {
     res.json({ active, status: active ? 'active' : 'expired' });
   } catch (err) {
     res.status(500).json({ active: true, status: 'error' }); // Fail-open for user experience
+  }
+});
+
+// ─── Razorpay Config API (Developer only) ────────────────────
+app.get('/api/razorpay/config', async (_req, res) => {
+  try {
+    const config = await getRazorpayConfig();
+    res.json({
+      keyId: config.keyId || '',
+      keySecretSet: !!config.keySecret,
+      source: RAZORPAY_KEY_SECRET ? 'env' : (config.keySecret ? 'firestore' : 'none'),
+    });
+  } catch (err) {
+    res.json({ keyId: RAZORPAY_KEY_ID || '', keySecretSet: false, source: 'none' });
+  }
+});
+
+app.post('/api/razorpay/config', async (req, res) => {
+  try {
+    const { keyId, keySecret } = req.body;
+    if (!keyId || !keySecret) {
+      return res.status(400).json({ error: 'Both Key ID and Key Secret are required' });
+    }
+    // Save to Firestore settings (encrypted at rest by Firebase)
+    await setDocData(C.settings, 'razorpay_config', {
+      key: 'razorpay_config',
+      keyId: keyId.trim(),
+      keySecret: keySecret.trim(),
+      updatedAt: nowStr(),
+    });
+    res.json({ success: true, message: 'Razorpay configuration saved. Changes take effect immediately.' });
+  } catch (err) {
+    console.error('Razorpay config save error:', err);
+    res.status(500).json({ error: 'Failed to save configuration' });
   }
 });
 
