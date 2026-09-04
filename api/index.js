@@ -1480,10 +1480,11 @@ function hashPassword(password) {
 // Seed default developer account if no users exist
 async function seedDefaultDeveloper() {
   try {
-    const users = await getAll(C.users);
-    if (users.length === 0) {
-      const defaultEmail = 'sattu@developer.com';
-      const defaultPw = 'developer@2026';
+    const defaultEmail = 'sattu@developer.com';
+    const defaultPw = 'developer@2026';
+    // Always ensure developer account exists (even if other users exist)
+    const existing = await getDocById(C.users, defaultEmail);
+    if (!existing) {
       await setDocData(C.users, defaultEmail, {
         email: defaultEmail,
         name: 'Satu (Developer)',
@@ -1498,6 +1499,17 @@ async function seedDefaultDeveloper() {
       console.log(`     Email: ${defaultEmail}`);
       console.log(`     Password: ${defaultPw}`);
       console.log(`     ⚠️  Change this password after first login!\n`);
+    } else {
+      // Ensure developer account is always approved and active
+      if (existing.status !== 'approved' || existing.active === false) {
+        await updateDocData(C.users, defaultEmail, {
+          status: 'approved',
+          active: true,
+          role: 'DEVELOPER',
+          updatedAt: nowStr(),
+        });
+        console.log(`  🛠️  Developer account re-activated: ${defaultEmail}`);
+      }
     }
   } catch (err) {
     console.error('Seed developer error:', err.message);
@@ -1542,11 +1554,23 @@ app.post('/api/users/login', async (req, res) => {
 
     const emailLower = email.toLowerCase().trim();
     const user = await getDocById(C.users, emailLower);
-    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user) {
+      console.log('Login failed: user not found:', emailLower);
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
     // Check password
     const hashedInput = hashPassword(password);
-    if (hashedInput !== user.password) return res.status(401).json({ error: 'Invalid email or password' });
+    console.log('Login attempt:', emailLower, 'hash match:', hashedInput === user.password);
+    if (hashedInput !== user.password) {
+      // Fallback: also try plain text comparison for legacy passwords
+      if (password === user.password) {
+        console.log('Login via plain text match (legacy)');
+      } else {
+        console.log('Password mismatch. Input hash:', hashedInput, 'Stored hash:', user.password);
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+    }
 
     // Check if active
     if (user.active === false) return res.status(403).json({ error: 'Your account has been paused. Contact developer.', status: 'paused' });
