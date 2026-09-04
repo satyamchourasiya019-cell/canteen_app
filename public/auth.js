@@ -78,20 +78,38 @@
     // Verify credentials are still valid
     fetch('/api/users/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail || '', 'X-Admin-Password': adminPassword || '' },
       body: JSON.stringify({ email: adminEmail, password: adminPassword }),
     }).then(r => r.json()).then(data => {
-      if (!data.valid) {
-        logout();
-        return;
+      if (data.valid) {
+        // New user system verified OK
+        if (data.user) {
+          adminUser = data.user;
+          localStorage.setItem('adminUser', JSON.stringify(data.user));
+        }
+        checkSession();
+        setInterval(checkSession, 60 * 1000);
+      } else {
+        // Try legacy password verify as fallback
+        fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPassword }),
+        }).then(r2 => r2.json()).then(data2 => {
+          if (data2.valid) {
+            // Legacy password works, keep session
+            checkSession();
+            setInterval(checkSession, 60 * 1000);
+          } else {
+            // Both failed, logout
+            logout();
+          }
+        }).catch(() => {
+          // Network error on fallback, keep session
+          checkSession();
+          setInterval(checkSession, 60 * 1000);
+        });
       }
-      // Update user info if available
-      if (data.user) {
-        adminUser = data.user;
-        localStorage.setItem('adminUser', JSON.stringify(data.user));
-      }
-      checkSession();
-      setInterval(checkSession, 60 * 1000);
     }).catch(() => {
       // Network error - allow continued use
       checkSession();
