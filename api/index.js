@@ -2023,6 +2023,7 @@ app.get('/feedback', (_req, res) => res.sendFile(path.join(PUBLIC, 'feedback.htm
 app.get('/developer', (_req, res) => res.sendFile(path.join(PUBLIC, 'developer.html')));
 app.get('/subscription', (_req, res) => res.sendFile(path.join(PUBLIC, 'subscription.html')));
 app.get('/approval-pending', (_req, res) => res.sendFile(path.join(PUBLIC, 'approval-pending.html')));
+app.get('/qr-links', (_req, res) => res.sendFile(path.join(PUBLIC, 'qr-links.html')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  VERCEL HANDLER + LOCAL DEV

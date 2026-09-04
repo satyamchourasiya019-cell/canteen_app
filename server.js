@@ -1666,6 +1666,9 @@ app.get('/subscription', (_req, res) => {
 app.get('/approval-pending', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'approval-pending.html'));
 });
+app.get('/qr-links', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'qr-links.html'));
+});
 
 // ─── Complaints APIs ───────────────────────────────────────
 app.get('/api/complaints', (req, res) => {

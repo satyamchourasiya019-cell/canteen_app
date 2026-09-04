@@ -120,7 +120,7 @@
   } else {
     // Not logged in - check if this is a public page
     const path = window.location.pathname.toLowerCase();
-    const publicPages = ['/user-ordering', '/auth', '/feedback', '/subscription', '/approval-pending'];
+    const publicPages = ['/user-ordering', '/auth', '/feedback', '/subscription', '/approval-pending', '/qr-links'];
     const isPublicPage = publicPages.some(p => path === p || path === p + '.html');
 
     if (!isPublicPage) {

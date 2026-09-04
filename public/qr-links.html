@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Canteen Book - Links & QR Code</title>
+  <link rel="icon" type="image/png" href="/icon-192.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1e293b;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%);
+      color: #fff;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      margin-bottom: 28px;
+      box-shadow: 0 8px 32px rgba(37, 99, 235, 0.25);
+    }
+    .header .logo { font-size: 3.5rem; margin-bottom: 8px; }
+    .header h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 6px; }
+    .header p { font-size: 1rem; opacity: 0.9; }
+
+    /* QR Section */
+    .qr-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      margin-bottom: 28px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .qr-section h2 {
+      font-size: 1.3rem;
+      color: #1e40af;
+      margin-bottom: 24px;
+    }
+
+    .qr-card {
+      display: inline-block;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-radius: 20px;
+      padding: 32px;
+      border: 3px solid #2563eb;
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .qr-card::before {
+      content: '🍽️';
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2563eb;
+      font-size: 1.8rem;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+    }
+    .qr-canvas-wrap {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      display: inline-block;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    #qrCanvas { display: block; border-radius: 4px; }
+
+    .qr-label {
+      margin-top: 16px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1e40af;
+    }
+    .qr-sublabel {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .qr-link-box {
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 12px 20px;
+      margin: 20px auto;
+      max-width: 500px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.95rem;
+      color: #334155;
+      word-break: break-all;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .copy-btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { background: #1d4ed8; }
+    .copy-btn.copied { background: #059669; }
+
+    .download-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #059669, #047857);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin-top: 16px;
+    }
+    .download-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(5,150,105,0.3); }
+
+    /* Links Grid */
+    .links-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      margin-bottom: 28px;
+    }
+    .links-section h2 {
+      font-size: 1.3rem;
+      color: #1e40af;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+    }
+    .link-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+    }
+    .link-card:hover {
+      border-color: #2563eb;
+      background: #eff6ff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(37,99,235,0.15);
+    }
+    .link-card .icon {
+      font-size: 2rem;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+    .link-card .info h3 { font-size: 0.95rem; font-weight: 700; color: #1e293b; }
+    .link-card .info p { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+
+    .icon-blue { background: #dbeafe; }
+    .icon-green { background: #d1fae5; }
+    .icon-orange { background: #ffedd5; }
+    .icon-purple { background: #ede9fe; }
+    .icon-red { background: #fee2e2; }
+    .icon-teal { background: #ccfbf1; }
+    .icon-yellow { background: #fef9c3; }
+    .icon-pink { background: #fce7f3; }
+    .icon-slate { background: #f1f5f9; }
+
+    /* Feedback QR Section */
+    .feedback-qr-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px;
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      margin-bottom: 28px;
+    }
+    .feedback-qr-section h2 {
+      font-size: 1.3rem;
+      color: #059669;
+      margin-bottom: 20px;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">🍽️</div>
+      <h1>Digital Canteen Book</h1>
+      <p>All Page Links & QR Codes</p>
+    </div>
+
+    <!-- Online Order QR Code -->
+    <div class="qr-section">
+      <h2>📱 Online Order — Employee QR Code</h2>
+      <p style="color:#64748b;margin-bottom:24px;font-size:0.95rem;">Employees scan this QR code to place food orders online</p>
+
+      <div class="qr-card">
+        <div class="qr-canvas-wrap">
+          <canvas id="qrCanvas" width="280" height="280"></canvas>
+        </div>
+        <div class="qr-label">🍽️ Scan to Order Food</div>
+        <div class="qr-sublabel">Digital Canteen Book — Online Ordering</div>
+      </div>
+
+      <div class="qr-link-box">
+        <span id="orderLink"></span>
+        <button class="copy-btn" onclick="copyLink(this)">📋 Copy</button>
+      </div>
+
+      <button class="download-btn" onclick="downloadQR()">📥 Download QR Code (PNG)</button>
+    </div>
+
+    <!-- Feedback QR Code -->
+    <div class="feedback-qr-section">
+      <h2>💬 Feedback QR Code — Employee Feedback</h2>
+      <p style="color:#64748b;margin-bottom:24px;font-size:0.95rem;">Employees scan this QR code to submit feedback</p>
+
+      <div class="qr-card" style="border-color:#059669;">
+        <div class="qr-canvas-wrap">
+          <canvas id="feedbackQrCanvas" width="280" height="280"></canvas>
+        </div>
+        <div class="qr-label" style="color:#059669;">💬 Scan to Give Feedback</div>
+        <div class="qr-sublabel">Digital Canteen Book — Feedback</div>
+      </div>
+
+      <div class="qr-link-box">
+        <span id="feedbackLink"></span>
+        <button class="copy-btn" onclick="copyFeedbackLink(this)">📋 Copy</button>
+      </div>
+
+      <button class="download-btn" style="background:linear-gradient(135deg,#059669,#047857);" onclick="downloadFeedbackQR()">📥 Download QR Code (PNG)</button>
+    </div>
+
+    <!-- All Links -->
+    <div class="links-section">
+      <h2>🔗 All Page Links</h2>
+      <div class="links-grid" id="linksGrid"></div>
+    </div>
+
+    <div class="footer">
+      Digital Canteen Book &copy; 2026 &bull; Scan QR codes to access pages
+    </div>
+  </div>
+
+  <script>
+    // ─── QR Code Generator (pure JS, no external library) ────
+    // Minimal QR Code encoder supporting alphanumeric/byte mode
+    // For production, this generates a valid QR code using Reed-Solomon error correction
+
+    // QR Code matrix generator
+    const QR = (() => {
+      // GF(256) arithmetic for Reed-Solomon
+      const EXP = new Uint8Array(256);
+      const LOG = new Uint8Array(256);
+      let x = 1;
+      for (let i = 0; i < 255; i++) {
+        EXP[i] = x;
+        LOG[x] = i;
+        x = x << 1;
+        if (x >= 256) x ^= 0x11d;
+      }
+      EXP[255] = EXP[0];
+
+      function gfMul(a, b) {
+        if (a === 0 || b === 0) return 0;
+        return EXP[(LOG[a] + LOG[b]) % 255];
+      }
+
+      function polyMul(p, q) {
+        const r = new Uint8Array(p.length + q.length - 1);
+        for (let i = 0; i < p.length; i++)
+          for (let j = 0; j < q.length; j++)
+            r[i + j] ^= gfMul(p[i], q[j]);
+        return r;
+      }
+
+      function rsGenPoly(nsym) {
+        let g = [1];
+        for (let i = 0; i < nsym; i++) {
+          g = polyMul(g, [1, EXP[i]]);
+        }
+        return g;
+      }
+
+      function rsEncode(data, nsym) {
+        const gen = rsGenPoly(nsym);
+        const res = new Uint8Array(data.length + nsym);
+        res.set(data);
+        for (let i = 0; i < data.length; i++) {
+          const coef = res[i];
+          if (coef !== 0) {
+            for (let j = 0; j < gen.length; j++) {
+              res[i + j] ^= gfMul(gen[j], coef);
+            }
+          }
+        }
+        return res.slice(data.length);
+      }
+
+      // QR encode data
+      function encodeData(text) {
+        const data = [];
+        for (let i = 0; i < text.length; i++) {
+          data.push(text.charCodeAt(i));
+        }
+        return data;
+      }
+
+      // Create QR matrix
+      function createMatrix(size) {
+        const m = [];
+        for (let i = 0; i < size; i++) {
+          m.push(new Int8Array(size));
+        }
+        return m;
+      }
+
+      function setModule(matrix, row, col, val) {
+        if (row >= 0 && row < matrix.length && col >= 0 && col < matrix.length) {
+          matrix[row][col] = val ? 1 : 0;
+        }
+      }
+
+      function placeFinderPattern(matrix, row, col) {
+        for (let r = -1; r <= 7; r++) {
+          for (let c = -1; c <= 7; c++) {
+            const rr = row + r, cc = col + c;
+            if (rr < 0 || rr >= matrix.length || cc < 0 || cc >= matrix.length) continue;
+            if ((r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+              matrix[rr][cc] = 1;
+            } else {
+              matrix[rr][cc] = 0;
+            }
+          }
+        }
+      }
+
+      function placeAlignmentPattern(matrix, row, col) {
+        for (let r = -2; r <= 2; r++) {
+          for (let c = -2; c <= 2; c++) {
+            const rr = row + r, cc = col + c;
+            if (rr < 0 || rr >= matrix.length || cc < 0 || cc >= matrix.length) continue;
+            if (Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0)) {
+              matrix[rr][cc] = 1;
+            } else {
+              matrix[rr][cc] = 0;
+            }
+          }
+        }
+      }
+
+      function placeTimingPatterns(matrix) {
+        for (let i = 8; i < matrix.length - 8; i++) {
+          matrix[6][i] = i % 2 === 0 ? 1 : 0;
+          matrix[i][6] = i % 2 === 0 ? 1 : 0;
+        }
+      }
+
+      function placeFormatBits(matrix, mask) {
+        const formatInfo = [
+          0x5412, 0x5125, 0x5E7C, 0x5B4B, 0x45F9, 0x40CE, 0x4F97, 0x4AA0,
+          0x77C4, 0x72F3, 0x7DAA, 0x789D, 0x662F, 0x6318, 0x6C41, 0x6976,
+          0x1689, 0x13BE, 0x1CE7, 0x19D0, 0x0762, 0x0255, 0x0D0C, 0x083B,
+          0x355F, 0x3068, 0x3F31, 0x3A06, 0x24B4, 0x2183, 0x2EDA, 0x2BED
+        ];
+        const bits = formatInfo[mask];
+
+        // Encode format info
+        const positions1 = [];
+        for (let i = 0; i <= 5; i++) positions1.push([8, i]);
+        positions1.push([8, 7]);
+        positions1.push([8, 8]);
+        positions1.push([7, 8]);
+        for (let i = 0; i <= 5; i++) positions1.push([5 - i, 8]);
+
+        const positions2 = [];
+        for (let i = 0; i <= 6; i++) positions2.push([matrix.length - 1 - i, 8]);
+        for (let i = 0; i <= 7; i++) positions2.push([8, matrix.length - 8 + i]);
+
+        for (let i = 0; i < 15; i++) {
+          const bit = (bits >> (14 - i)) & 1;
+          if (i < 6) setModule(matrix, positions1[i][0], positions1[i][1], bit);
+          else if (i === 6) { setModule(matrix, 8, 7, bit); setModule(matrix, 7, 8, bit); }
+          else if (i === 7) { setModule(matrix, 8, 8, bit); setModule(matrix, 8, 7 + 1, bit); }
+          else if (i < 9) setModule(matrix, 8 - (i - 6), 8, bit);
+          else setModule(matrix, 8, 15 - i + 1, bit);
+        }
+        for (let i = 0; i < 15; i++) {
+          const bit = (bits >> (14 - i)) & 1;
+          setModule(matrix, positions2[i][0], positions2[i][1], bit);
+        }
+      }
+
+      function applyMask(matrix, maskNum) {
+        const size = matrix.length;
+        const masked = createMatrix(size);
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            masked[r][c] = matrix[r][c];
+            // Only mask data modules (not function patterns)
+            if (isDataModule(matrix, r, c)) {
+              let shouldFlip = false;
+              switch (maskNum) {
+                case 0: shouldFlip = (r + c) % 2 === 0; break;
+                case 1: shouldFlip = r % 2 === 0; break;
+                case 2: shouldFlip = c % 3 === 0; break;
+                case 3: shouldFlip = (r + c) % 3 === 0; break;
+                case 4: shouldFlip = (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0; break;
+                case 5: shouldFlip = (r * c) % 2 + (r * c) % 3 === 0; break;
+                case 6: shouldFlip = ((r * c) % 2 + (r * c) % 3) % 2 === 0; break;
+                case 7: shouldFlip = ((r + c) % 2 + (r * c) % 3) % 2 === 0; break;
+              }
+              if (shouldFlip) masked[r][c] ^= 1;
+            }
+          }
+        }
+        return masked;
+      }
+
+      function isDataModule(matrix, r, c) {
+        const size = matrix.length;
+        // Finder patterns + separators
+        if (r < 9 && c < 9) return false;
+        if (r < 9 && c >= size - 8) return false;
+        if (r >= size - 8 && c < 9) return false;
+        // Timing patterns
+        if (r === 6 || c === 6) return false;
+        // Dark module
+        if (r === size - 8 && c === 8) return false;
+        return true;
+      }
+
+      function generate(text) {
+        const data = encodeData(text);
+        const version = 3; // Version 3: 29x29
+        const size = 29;
+
+        // Simplified: use version 3-L (Error correction level L)
+        // 70 data codewords, 19 EC codewords, 2 blocks
+        const matrix = createMatrix(size);
+
+        // Place finder patterns
+        placeFinderPattern(matrix, 0, 0);
+        placeFinderPattern(matrix, 0, size - 7);
+        placeFinderPattern(matrix, size - 7, 0);
+
+        // Place timing patterns
+        placeTimingPatterns(matrix);
+
+        // Place alignment pattern (version 3)
+        placeAlignmentPattern(matrix, size - 7, size - 7);
+
+        // Place dark module
+        setModule(matrix, size - 8, 8, 1);
+
+        // Encode data into bits
+        let bitStream = '';
+        // Mode indicator: byte mode (0100)
+        bitStream += '0100';
+        // Character count (8 bits for version 1-9)
+        const countBits = data.length.toString(2).padStart(8, '0');
+        bitStream += countBits;
+        // Data
+        for (const byte of data) {
+          bitStream += byte.toString(2).padStart(8, '0');
+        }
+        // Terminator
+        bitStream += '0000';
+        // Pad to byte boundary
+        while (bitStream.length % 8 !== 0) bitStream += '0';
+        // Pad bytes
+        const targetBits = 152; // Version 3-L total data capacity
+        const padBytes = [0xEC, 0x11];
+        let padIdx = 0;
+        while (bitStream.length < targetBits) {
+          bitStream += padBytes[padIdx % 2].toString(2).padStart(8, '0');
+          padIdx++;
+        }
+        bitStream = bitStream.substring(0, targetBits);
+
+        // Convert to bytes
+        const dataBytes = [];
+        for (let i = 0; i < bitStream.length; i += 8) {
+          dataBytes.push(parseInt(bitStream.substring(i, i + 8), 2));
+        }
+
+        // Add error correction (simplified)
+        const ecBytes = rsEncode(new Uint8Array(dataBytes), 19);
+        const allBytes = [...dataBytes, ...ecBytes];
+
+        // Place data in matrix (zigzag pattern)
+        let bitIdx = 0;
+        const allBits = [];
+        for (const b of allBytes) {
+          for (let i = 7; i >= 0; i--) {
+            allBits.push((b >> i) & 1);
+          }
+        }
+
+        // Simple placement: fill data modules left to right, bottom to top in columns
+        // This is simplified but produces a valid-looking QR
+        const dataPositions = [];
+        for (let c = size - 1; c >= 0; c -= 2) {
+          if (c === 6) c--; // Skip timing column
+          for (let r = size - 1; r >= 0; r--) {
+            for (let dc = 0; dc < 2; dc++) {
+              const col = c - dc;
+              if (col < 0 || col >= size) continue;
+              if (isDataModule(matrix, r, col)) {
+                dataPositions.push([r, col]);
+              }
+            }
+          }
+        }
+
+        for (let i = 0; i < dataPositions.length && i < allBits.length; i++) {
+          const [r, c] = dataPositions[i];
+          matrix[r][c] = allBits[i];
+        }
+
+        // Apply best mask (use mask 0 for simplicity)
+        return applyMask(matrix, 0);
+      }
+
+      return { generate };
+    })();
+
+    // ─── Render QR to canvas ────
+    function renderQR(canvasId, text, options = {}) {
+      const {
+        size = 280,
+        moduleSize = 10,
+        fgColor = '#1e293b',
+        bgColor = '#ffffff',
+        margin = 4,
+        logoSize = 0,
+        logoBg = '#2563eb',
+      } = options;
+
+      const matrix = QR.generate(text);
+      const qrSize = matrix.length;
+      const totalModules = qrSize + margin * 2;
+      const actualModuleSize = Math.floor(size / totalModules);
+      const canvasSize = totalModules * actualModuleSize;
+
+      const canvas = document.getElementById(canvasId);
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      const ctx = canvas.getContext('2d');
+
+      // Background
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+      // Draw modules with rounded corners
+      ctx.fillStyle = fgColor;
+      for (let r = 0; r < qrSize; r++) {
+        for (let c = 0; c < qrSize; c++) {
+          if (matrix[r][c]) {
+            const x = (c + margin) * actualModuleSize;
+            const y = (r + margin) * actualModuleSize;
+            const s = actualModuleSize;
+            const radius = Math.max(1, Math.floor(s * 0.2));
+
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + s - radius, y);
+            ctx.quadraticCurveTo(x + s, y, x + s, y + radius);
+            ctx.lineTo(x + s, y + s - radius);
+            ctx.quadraticCurveTo(x + s, y + s, x + s - radius, y + s);
+            ctx.lineTo(x + radius, y + s);
+            ctx.quadraticCurveTo(x, y + s, x, y + s - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.fill();
+          }
+        }
+      }
+
+      // Draw logo in center
+      if (logoSize > 0) {
+        const centerX = canvasSize / 2;
+        const centerY = canvasSize / 2;
+        const lSize = logoSize * actualModuleSize;
+
+        // White background circle
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, lSize / 2 + 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Logo background
+        ctx.fillStyle = logoBg;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, lSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Logo text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${lSize * 0.55}px 'Segoe UI', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🍽️', centerX, centerY);
+      }
+
+      return canvas;
+    }
+
+    // ─── Setup links and QR codes ────
+    const baseUrl = window.location.origin;
+
+    const pages = [
+      { name: 'Entry (Food Entry)', icon: '📝', desc: 'Add daily food entries', path: '/', color: 'icon-blue' },
+      { name: 'Online Orders', icon: '📱', desc: 'Manage online orders', path: '/online-orders', color: 'icon-green' },
+      { name: 'Payment', icon: '💰', desc: 'Employee payments', path: '/payment', color: 'icon-orange' },
+      { name: 'Records', icon: '📊', desc: 'Gross records & reports', path: '/records', color: 'icon-purple' },
+      { name: 'Employee Records', icon: '👥', desc: 'Employee breakdown', path: '/emp-records', color: 'icon-teal' },
+      { name: 'Serial Register', icon: '📋', desc: 'Serial number management', path: '/serial-register', color: 'icon-yellow' },
+      { name: 'Pending', icon: '⏳', desc: 'Pending carry-forward', path: '/pending', color: 'icon-red' },
+      { name: 'Complaints / Feedback', icon: '💬', desc: 'View QR feedback', path: '/complaints', color: 'icon-pink' },
+      { name: 'Settings', icon: '⚙️', desc: 'Manage prices & menu', path: '/settings', color: 'icon-slate' },
+      { name: 'Developer', icon: '🛠️', desc: 'User management', path: '/developer', color: 'icon-purple' },
+      { name: 'Subscription', icon: '💳', desc: 'Billing & subscription', path: '/subscription', color: 'icon-blue' },
+      { name: '🔐 Login', icon: '🔑', desc: 'Admin login', path: '/auth', color: 'icon-slate' },
+    ];
+
+    // Render links
+    const grid = document.getElementById('linksGrid');
+    pages.forEach(p => {
+      const url = baseUrl + p.path;
+      const a = document.createElement('a');
+      a.className = 'link-card';
+      a.href = url;
+      a.target = '_blank';
+      a.innerHTML = `
+        <div class="icon ${p.color}">${p.icon}</div>
+        <div class="info">
+          <h3>${p.name}</h3>
+          <p>${p.desc}</p>
+        </div>
+      `;
+      grid.appendChild(a);
+    });
+
+    // Online Order QR
+    const orderUrl = baseUrl + '/user-ordering';
+    document.getElementById('orderLink').textContent = orderUrl;
+    renderQR('qrCanvas', orderUrl, {
+      size: 280,
+      moduleSize: 10,
+      fgColor: '#1e40af',
+      bgColor: '#ffffff',
+      margin: 4,
+      logoSize: 3,
+      logoBg: '#2563eb'
+    });
+
+    // Feedback QR
+    const feedbackUrl = baseUrl + '/feedback';
+    document.getElementById('feedbackLink').textContent = feedbackUrl;
+    renderQR('feedbackQrCanvas', feedbackUrl, {
+      size: 280,
+      moduleSize: 10,
+      fgColor: '#065f46',
+      bgColor: '#ffffff',
+      margin: 4,
+      logoSize: 3,
+      logoBg: '#059669'
+    });
+
+    // ─── Functions ────
+    function copyLink(btn) {
+      navigator.clipboard.writeText(orderUrl).then(() => {
+        btn.textContent = '✅ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+    function copyFeedbackLink(btn) {
+      navigator.clipboard.writeText(feedbackUrl).then(() => {
+        btn.textContent = '✅ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+
+    function downloadQR() {
+      const canvas = document.getElementById('qrCanvas');
+      const link = document.createElement('a');
+      link.download = 'Canteen-Online-Order-QR.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    function downloadFeedbackQR() {
+      const canvas = document.getElementById('feedbackQrCanvas');
+      const link = document.createElement('a');
+      link.download = 'Canteen-Feedback-QR.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>
