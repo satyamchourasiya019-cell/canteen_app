@@ -14,6 +14,48 @@ const {
 //  SECURITY IMPORTS
 // ═══════════════════════════════════════════════════════════════════
 const { initFirebaseAdmin, requireAuth, requirePermission } = require('../security/auth');
+
+// ─── Dual Auth: Password-based fallback for when Firebase Admin is unavailable ──
+let cachedPassword = null;
+async function verifyAdminPassword(req, res, next) {
+  // Check X-Admin-Password header (from auth.js or password modal)
+  const pwHeader = req.headers['x-admin-password'];
+  if (!pwHeader) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  try {
+    if (!cachedPassword) {
+      const pwDoc = await getDocById(C.settings, 'password');
+      cachedPassword = pwDoc ? String(pwDoc.value) : '988388';
+    }
+    if (String(pwHeader) === String(cachedPassword)) {
+      req.user = { uid: 'password-auth', role: 'ADMIN', name: 'Admin', email: '', permissions: [] };
+      return next();
+    }
+    return res.status(401).json({ error: 'Invalid password' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Auth check failed' });
+  }
+}
+
+// Combined auth: try Firebase token first, fall back to password
+function dualAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const pwHeader = req.headers['x-admin-password'];
+
+  // If Bearer token present, try Firebase Auth
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return requireAuth(req, res, next);
+  }
+
+  // If password header present, try password auth
+  if (pwHeader) {
+    return verifyAdminPassword(req, res, next);
+  }
+
+  // No auth at all
+  return res.status(401).json({ error: 'Authentication required' });
+}
 const { orderLimiter, publicReadLimiter, apiLimiter } = require('../security/rateLimit');
 const { validateEntry, validateOrder, validateSerialRegister, validatePayment, validateMenu, validateComplaint } = require('../security/validation');
 const { initAudit, auditMiddleware, ACTIONS } = require('../security/audit');
@@ -333,11 +375,14 @@ app.use('/api', (req, res, next) => {
   // Allow public serial-register lookup
   if (req.method === 'GET' && path.startsWith('/serial-register/lookup/')) return next();
 
-  // Allow SSE stream for admin
-  if (path === '/orders/stream') return requireAuth(req, res, next);
+  // Allow SSE stream for admin (dual auth)
+  if (path === '/orders/stream') return dualAuth(req, res, next);
 
-  // Everything else requires authentication
-  requireAuth(req, res, next);
+  // Allow public serial-register stats (needed by serial-register page before password entry)
+  if (req.method === 'GET' && path === '/serial-register/stats/all') return next();
+
+  // Everything else requires authentication (Firebase token OR password)
+  dualAuth(req, res, next);
 });
 
 // ═══════════════════════════════════════════════════════════════════

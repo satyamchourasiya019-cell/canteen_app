@@ -24,13 +24,10 @@
     .login-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
     .error-msg{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:16px;display:none}
     .error-msg.show{display:block}
-    .back-link{text-align:center;margin-top:16px;font-size:0.85rem;color:#64748b}
-    .back-link a{color:#2563eb;text-decoration:none;font-weight:600}
-    .back-link a:hover{text-decoration:underline}
-    .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:8px;vertical-align:middle}
-    @keyframes spin{to{transform:rotate(360deg)}}
     .security-note{margin-top:20px;padding:12px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.78rem;color:#0369a1;text-align:center}
     .security-note strong{display:block;margin-bottom:2px}
+    .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:8px;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
@@ -44,12 +41,8 @@
       <div class="error-msg" id="errorMsg"></div>
       <form id="loginForm" onsubmit="return false;">
         <div class="form-group">
-          <label>Email Address</label>
-          <input type="email" id="email" placeholder="admin@example.com" required autocomplete="email" />
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password" />
+          <label>Admin Password</label>
+          <input type="password" id="password" placeholder="Enter admin password" required autocomplete="current-password" autofocus />
         </div>
         <button type="submit" class="login-btn" id="loginBtn">
           Sign In
@@ -62,36 +55,10 @@
     </div>
   </div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
-
   <script>
-    // ─── Firebase Config ──────────────────────────────────────
-    const firebaseConfig = {
-      apiKey: "AIzaSyCqiJDd9mijLa3AV3S7JgyLlkkoCODFlJk",
-      authDomain: "canteen-app-bbaf5.firebaseapp.com",
-      projectId: "canteen-app-bbaf5",
-      storageBucket: "canteen-app-bbaf5.firebasestorage.app",
-      messagingSenderId: "793607116131",
-      appId: "1:793607116131:web:0097a1db298778fa43af56",
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-
-    // ─── Redirect if already logged in ────────────────────────
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        window.location.href = '/';
-      }
-    });
-
-    // ─── Login Form Handler ───────────────────────────────────
     const loginForm = document.getElementById('loginForm');
     const errorMsg = document.getElementById('errorMsg');
     const loginBtn = document.getElementById('loginBtn');
-    const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
 
     function showError(msg) {
@@ -114,75 +81,58 @@
 
     loginForm.addEventListener('submit', async () => {
       hideError();
-      const email = emailInput.value.trim();
       const password = passwordInput.value;
 
-      if (!email || !password) {
-        showError('Please enter both email and password.');
+      if (!password) {
+        showError('Please enter the admin password.');
         return;
       }
 
       setLoading(true);
 
       try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
+        const res = await fetch('/api/password/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
 
-        // Verify this user is an authorized admin
-        const token = await user.getIdToken();
+        const data = await res.json();
 
-        // Check admin_users collection
-        const db = firebase.firestore();
-        const userDoc = await db.collection('admin_users').doc(user.uid).get();
+        if (data.valid) {
+          // Store password for API auth
+          localStorage.setItem('adminPassword', password);
+          localStorage.setItem('adminLoginTime', String(Date.now()));
 
-        if (!userDoc.exists) {
-          await auth.signOut();
-          showError('Your account is not authorized for admin access. Contact the Developer.');
+          // Redirect to dashboard
+          window.location.href = '/';
+        } else {
+          showError('Incorrect password. Please try again.');
           setLoading(false);
-          return;
         }
-
-        const userData = userDoc.data();
-        if (userData.active === false) {
-          await auth.signOut();
-          showError('Your admin account has been deactivated. Contact your administrator.');
-          setLoading(false);
-          return;
-        }
-
-        // Store token for API calls
-        localStorage.setItem('fbAuthToken', token);
-        localStorage.setItem('fbUser', JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          role: userData.role,
-          name: userData.name,
-        }));
-
-        // Redirect to dashboard
-        window.location.href = '/';
       } catch (err) {
         console.error('Login error:', err);
+        showError('Login failed. Please try again.');
         setLoading(false);
-
-        if (err.code === 'auth/user-not-found') {
-          showError('No account found with this email address.');
-        } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-          showError('Incorrect email or password. Please try again.');
-        } else if (err.code === 'auth/too-many-requests') {
-          showError('Too many failed login attempts. Please wait a few minutes and try again.');
-        } else if (err.code === 'auth/network-request-failed') {
-          showError('Network error. Please check your connection and try again.');
-        } else {
-          showError('Login failed. Please try again.');
-        }
       }
     });
 
-    // ─── Enter key support ────────────────────────────────────
+    // Enter key support
     passwordInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loginForm.dispatchEvent(new Event('submit'));
     });
+
+    // Check if already logged in
+    const storedPw = localStorage.getItem('adminPassword');
+    if (storedPw) {
+      fetch('/api/password/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: storedPw }),
+      }).then(r => r.json()).then(data => {
+        if (data.valid) window.location.href = '/';
+      }).catch(() => {});
+    }
   </script>
 </body>
 </html>
