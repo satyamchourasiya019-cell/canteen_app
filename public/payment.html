@@ -27,6 +27,7 @@
       <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
       <a href="/complaints" class="nav-btn">📣 Complaints</a>
       <a href="/settings" class="nav-btn">⚙️ Settings</a>
+      <a href="/subscription" class="nav-btn">💳 Subscription</a>
     </nav>
   </header>
 
@@ -212,7 +213,23 @@
         yearSel.appendChild(opt);
       }
 
-      // Show password modal
+      // Check if already logged in via auth.js
+      const storedPw = localStorage.getItem('adminPassword');
+      if (storedPw) {
+        try {
+          const verifyRes = await fetch('/api/password/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: storedPw }),
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.valid) {
+            authenticated = true;
+            return; // Already logged in, no need for password modal
+          }
+        } catch(e) {}
+      }
+      // Show password modal if not authenticated
       showPasswordModal();
     })();
 
@@ -275,17 +292,33 @@
 
       currentEmp = empNo;
 
-      // Fetch employee name
+      // Fetch employee name - try serial register first, then employees table
+      let empNameFound = false;
       try {
-        const empRes = await fetch(`/api/employees/${empNo}`);
-        const empData = await empRes.json();
-        if (empData.name) {
-          document.getElementById('empNameDisplay').style.display = 'flex';
-          document.getElementById('empNameValue').textContent = empData.name;
-        } else {
-          document.getElementById('empNameDisplay').style.display = 'none';
+        const sRes = await fetch(`/api/serial-register/lookup/${empNo}`);
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          if (sData.employee_name && sData.status === 'Active') {
+            document.getElementById('empNameDisplay').style.display = 'flex';
+            document.getElementById('empNameValue').textContent = sData.employee_name;
+            empNameFound = true;
+          }
         }
-      } catch (e) {
+      } catch(e) {}
+      if (!empNameFound) {
+        try {
+          const empRes = await fetch(`/api/employees/${empNo}`);
+          if (empRes.ok) {
+            const empData = await empRes.json();
+            if (empData.name) {
+              document.getElementById('empNameDisplay').style.display = 'flex';
+              document.getElementById('empNameValue').textContent = empData.name;
+              empNameFound = true;
+            }
+          }
+        } catch (e) {}
+      }
+      if (!empNameFound) {
         document.getElementById('empNameDisplay').style.display = 'none';
       }
 

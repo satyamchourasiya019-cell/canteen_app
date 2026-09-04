@@ -60,6 +60,7 @@
       { "source": "/serial-register", "destination": "/serial-register.html" },
       { "source": "/complaints", "destination": "/complaints.html" },
       { "source": "/feedback", "destination": "/feedback.html" },
+      { "source": "/subscription", "destination": "/subscription.html" },
       { "source": "/developer", "destination": "/developer.html" },
       { "source": "/auth", "destination": "/auth.html" }
     ],

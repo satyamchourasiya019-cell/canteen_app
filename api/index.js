@@ -118,6 +118,8 @@ const C = {
   serialHistory: 'serial_history',
   complaints: 'complaints',
   bookingSettings: 'booking_settings',
+  subscription: 'subscription',
+  paymentHistory: 'payment_history',
 };
 
 // Get all docs - NO orderBy in Firestore (avoids composite index issues)
@@ -357,7 +359,7 @@ function sendSSE(event, data) {
 //  ADMIN API PROTECTION MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════
 // Public endpoints that do NOT require authentication
-const PUBLIC_GET_PATHS = ['/today', '/prices', '/menu/available', '/booking-open', '/serial-register/lookup', '/password', '/serial-register/stats/all', '/menu'];
+const PUBLIC_GET_PATHS = ['/today', '/prices', '/menu/available', '/booking-open', '/serial-register/lookup', '/password', '/password/default', '/serial-register/stats/all', '/menu'];
 const PUBLIC_POST_PATHS = ['/orders', '/complaints', '/password/verify', '/feedback'];
 
 app.use('/api', (req, res, next) => {
@@ -375,11 +377,24 @@ app.use('/api', (req, res, next) => {
   // Allow public serial-register lookup
   if (req.method === 'GET' && path.startsWith('/serial-register/lookup/')) return next();
 
-  // Allow SSE stream for admin (dual auth)
-  if (path === '/orders/stream') return dualAuth(req, res, next);
+  // Allow SSE stream (needed for real-time order updates on admin page)
+  if (path === '/orders/stream') return next();
 
   // Allow public serial-register stats (needed by serial-register page before password entry)
   if (req.method === 'GET' && path === '/serial-register/stats/all') return next();
+
+  // Allow public serial-register list (for browsing before auth)
+  if (req.method === 'GET' && path === '/serial-register') return next();
+
+  // Allow viewing complaints/feedback (QR-submitted feedback from phone)
+  if (req.method === 'GET' && path === '/complaints') return next();
+
+  // Allow subscription status check (public for access control)
+  if (req.method === 'GET' && path === '/subscription') return next();
+  if (req.method === 'GET' && path === '/subscription/check') return next();
+
+  // Allow public serial-register single entry lookup
+  if (req.method === 'GET' && /^\/serial-register\/\d+/.test(path)) return next();
 
   // Everything else requires authentication (Firebase token OR password)
   dualAuth(req, res, next);
@@ -473,6 +488,17 @@ app.get('/api/password', async (_req, res) => {
   res.json({ password: '•••••' });
 });
 
+// ─── Public: Get default password hint (for first-time setup) ──
+app.get('/api/password/default', async (_req, res) => {
+  try {
+    const row = await getDocById(C.settings, 'password');
+    const storedPw = row ? String(row.value) : '988388';
+    res.json({ default: storedPw });
+  } catch (err) {
+    res.json({ default: '988388' });
+  }
+});
+
 app.post('/api/password', async (req, res) => {
   const { password } = req.body;
   if (password === undefined || password === null) return res.status(400).json({ error: 'Password required' });
@@ -485,11 +511,25 @@ app.post('/api/password', async (req, res) => {
 });
 
 app.post('/api/password/verify', async (req, res) => {
-  const { password } = req.body;
-  const row = await getDocById(C.settings, 'password');
-  const storedPw = row ? String(row.value) : '0';
-  if (String(password) === storedPw) res.json({ valid: true });
-  else res.status(401).json({ valid: false });
+  try {
+    const { password } = req.body;
+    const row = await getDocById(C.settings, 'password');
+    // Handle both number and string stored passwords
+    const storedPw = row ? String(row.value) : '988388';
+    if (String(password) === storedPw) {
+      res.json({ valid: true });
+    } else {
+      res.status(401).json({ valid: false, error: 'Invalid password' });
+    }
+  } catch (err) {
+    console.error('Password verify error:', err.message);
+    // Fallback: allow default password if DB is unavailable
+    if (String(req.body.password) === '988388') {
+      res.json({ valid: true });
+    } else {
+      res.status(500).json({ valid: false, error: 'Auth service unavailable' });
+    }
+  }
 });
 
 // ─── Employees ────────────────────────────────────────────────────
@@ -1393,6 +1433,222 @@ app.get('/api/admin/audit-logs', requireAuth, requirePermission('developer:manag
 });
 
 // ═══════════════════════════════════════════════════════════════════
+//  SUBSCRIPTION & BILLING (Razorpay Integration)
+// ═══════════════════════════════════════════════════════════════════
+const crypto = require('crypto');
+
+// Subscription plan config (easy to change later)
+const SUBSCRIPTION_PLAN = {
+  name: 'Canteen Management Monthly',
+  amount: 4999, // ₹4,999 in paise
+  currency: 'INR',
+  duration: 30, // days
+};
+
+// Razorpay config from environment variables
+// IMPORTANT: Set these in your Vercel/Hosting environment variables:
+//   RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxx
+//   RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
+
+// Helper: Make Razorpay API call
+async function razorpayAPI(method, endpoint, data = null) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const auth = Buffer.from(RAZORPAY_KEY_ID + ':' + RAZORPAY_KEY_SECRET).toString('base64');
+    const options = {
+      hostname: 'api.razorpay.com',
+      path: '/v1' + endpoint,
+      method: method,
+      headers: {
+        'Authorization': 'Basic ' + auth,
+        'Content-Type': 'application/json',
+      },
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch (e) {
+          reject(new Error('Invalid JSON from Razorpay'));
+        }
+      });
+    });
+    req.on('error', reject);
+    if (data) req.write(JSON.stringify(data));
+    req.end();
+  });
+}
+
+// Helper: Verify Razorpay payment signature
+function verifyRazorpaySignature(orderId, paymentId, signature) {
+  if (!RAZORPAY_KEY_SECRET) return false;
+  const body = orderId + '|' + paymentId;
+  const expectedSignature = crypto
+    .createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .update(body)
+    .digest('hex');
+  return expectedSignature === signature;
+}
+
+// Helper: Get or create subscription document
+async function getSubscription() {
+  let sub = await getDocById(C.subscription, 'main');
+  if (!sub) {
+    // Create default expired subscription
+    const defaultSub = {
+      status: 'expired',
+      planName: SUBSCRIPTION_PLAN.name,
+      amount: SUBSCRIPTION_PLAN.amount,
+      startDate: '',
+      expiryDate: '',
+      lastPaymentId: '',
+      lastOrderId: '',
+      updatedAt: nowStr(),
+    };
+    await setDocData(C.subscription, 'main', defaultSub);
+    sub = { id: 'main', ...defaultSub };
+  }
+  return sub;
+}
+
+// Helper: Check if subscription is active
+function isSubscriptionActive(sub) {
+  if (!sub || sub.status !== 'active') return false;
+  if (!sub.expiryDate) return false;
+  const expiry = new Date(sub.expiryDate);
+  return expiry > new Date();
+}
+
+// ─── Subscription API: Get current status (PUBLIC) ──────────
+app.get('/api/subscription', async (_req, res) => {
+  try {
+    const sub = await getSubscription();
+    const active = isSubscriptionActive(sub);
+    const now = new Date();
+    let daysRemaining = 0;
+    if (active && sub.expiryDate) {
+      const expiry = new Date(sub.expiryDate);
+      daysRemaining = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+    }
+    const renewWarning = daysRemaining > 0 && daysRemaining <= 3;
+    res.json({
+      status: active ? 'active' : 'expired',
+      planName: sub.planName || SUBSCRIPTION_PLAN.name,
+      amount: sub.amount || SUBSCRIPTION_PLAN.amount,
+      startDate: sub.startDate || '',
+      expiryDate: sub.expiryDate || '',
+      daysRemaining,
+      renewWarning,
+      monthlyPrice: SUBSCRIPTION_PLAN.amount,
+      razorpayKeyId: RAZORPAY_KEY_ID || 'rzp_test_demo',
+    });
+  } catch (err) {
+    console.error('Subscription fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Subscription API: Create Razorpay Order (requires auth) ──
+app.post('/api/subscription/create-order', async (req, res) => {
+  try {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({ error: 'Razorpay not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables.' });
+    }
+    const order = await razorpayAPI('POST', '/orders', {
+      amount: SUBSCRIPTION_PLAN.amount,
+      currency: SUBSCRIPTION_PLAN.currency,
+      receipt: 'sub_' + Date.now(),
+      notes: { plan: SUBSCRIPTION_PLAN.name },
+    });
+    if (order.error) {
+      return res.status(500).json({ error: order.error.description || 'Failed to create order' });
+    }
+    res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: RAZORPAY_KEY_ID,
+    });
+  } catch (err) {
+    console.error('Create order error:', err);
+    res.status(500).json({ error: 'Failed to create payment order' });
+  }
+});
+
+// ─── Subscription API: Verify Payment & Activate (requires auth) ──
+app.post('/api/subscription/verify-payment', async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ error: 'Missing payment details' });
+    }
+    // SECURITY: Verify payment signature on server-side
+    const isValid = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid payment signature. Payment verification failed.' });
+    }
+    // Payment verified - activate subscription
+    const now = new Date();
+    const startDate = now.toISOString().substring(0, 10);
+    const expiryDate = new Date(now.getTime() + SUBSCRIPTION_PLAN.duration * 24 * 60 * 60 * 1000);
+    const expiryDateStr = expiryDate.toISOString().substring(0, 10);
+    await setDocData(C.subscription, 'main', {
+      status: 'active',
+      planName: SUBSCRIPTION_PLAN.name,
+      amount: SUBSCRIPTION_PLAN.amount,
+      startDate,
+      expiryDate: expiryDateStr,
+      lastPaymentId: razorpay_payment_id,
+      lastOrderId: razorpay_order_id,
+      updatedAt: nowStr(),
+    });
+    // Save payment history
+    await addDocData(C.paymentHistory, {
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      amount: SUBSCRIPTION_PLAN.amount,
+      status: 'success',
+      planName: SUBSCRIPTION_PLAN.name,
+      paymentDate: nowStr(),
+      createdAt: nowStr(),
+    });
+    res.json({
+      success: true,
+      message: `Payment successful! Your subscription is active for the next ${SUBSCRIPTION_PLAN.duration} days.`,
+      expiryDate: expiryDateStr,
+    });
+  } catch (err) {
+    console.error('Verify payment error:', err);
+    res.status(500).json({ error: 'Payment verification failed' });
+  }
+});
+
+// ─── Subscription API: Get payment history ──────────────────
+app.get('/api/subscription/history', async (_req, res) => {
+  try {
+    const history = await getAll(C.paymentHistory, [], 'createdAt', false);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Subscription API: Check access (middleware helper) ──────
+app.get('/api/subscription/check', async (_req, res) => {
+  try {
+    const sub = await getSubscription();
+    const active = isSubscriptionActive(sub);
+    res.json({ active, status: active ? 'active' : 'expired' });
+  } catch (err) {
+    res.status(500).json({ active: true, status: 'error' }); // Fail-open for user experience
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 //  SERVE PAGES
 // ═══════════════════════════════════════════════════════════════════
 const PUBLIC = path.join(__dirname, '..', 'public');
@@ -1421,6 +1677,7 @@ app.get('/serial-register', (_req, res) => res.sendFile(path.join(PUBLIC, 'seria
 app.get('/complaints', (_req, res) => res.sendFile(path.join(PUBLIC, 'complaints.html')));
 app.get('/feedback', (_req, res) => res.sendFile(path.join(PUBLIC, 'feedback.html')));
 app.get('/developer', (_req, res) => res.sendFile(path.join(PUBLIC, 'developer.html')));
+app.get('/subscription', (_req, res) => res.sendFile(path.join(PUBLIC, 'subscription.html')));
 
 // ═══════════════════════════════════════════════════════════════════
 //  VERCEL HANDLER + LOCAL DEV

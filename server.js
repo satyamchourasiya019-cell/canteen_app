@@ -1621,6 +1621,10 @@ app.get('/developer', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'developer.html'));
 });
 
+app.get('/subscription', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'subscription.html'));
+});
+
 // ─── Complaints APIs ───────────────────────────────────────
 app.get('/api/complaints', (req, res) => {
   const { status, category } = req.query;

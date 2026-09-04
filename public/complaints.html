@@ -27,65 +27,23 @@
       <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
       <a href="/complaints" class="nav-btn active">⭐ Customer Feedback</a>
       <a href="/settings" class="nav-btn">⚙️ Settings</a>
+      <a href="/subscription" class="nav-btn">💳 Subscription</a>
     </nav>
   </header>
 
   <!-- ═══════════════ DATE BANNER ═══════════════ -->
   <div class="date-banner" id="dateBanner">Loading date…</div>
 
-  <!-- ═══════════════ SUBMIT COMPLAINT ═══════════════ -->
+  <!-- ═══════════════ FEEDBACK INFO (QR ONLY) ═══════════════ -->
   <section class="card settings-card">
     <div class="section-header">
-      <h2>⭐ Submit Customer Feedback</h2>
+      <h2>📱 Feedback via QR Code</h2>
     </div>
-    <p class="hint-text">Submit your feedback about canteen services. All submissions are reviewed by management.</p>
-
-    <div style="margin-top:16px;">
-      <div class="settings-grid" style="grid-template-columns:1fr 1fr;">
-        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
-          <label style="font-weight:700;margin-bottom:4px;">Your Name *</label>
-          <input type="text" id="compName" placeholder="Enter your name" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
-        </div>
-        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
-          <label style="font-weight:700;margin-bottom:4px;">Phone Number *</label>
-          <input type="tel" id="compPhone" placeholder="Enter phone number" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;" />
-        </div>
-        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
-          <label style="font-weight:700;margin-bottom:4px;">Department</label>
-          <select id="compDept" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
-            <option value="">Select Department</option>
-            <option>Engineering</option><option>HR</option><option>Finance</option>
-            <option>Marketing</option><option>Operations</option><option>Sales</option>
-            <option>Admin</option><option>IT</option><option>Other</option>
-          </select>
-        </div>
-        <div class="setting-item" style="flex-direction:column;align-items:stretch;">
-          <label style="font-weight:700;margin-bottom:4px;">Category *</label>
-          <select id="compCategory" style="padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;">
-            <option value="behaviour">🤝 Behaviour</option>
-            <option value="food_quality">🍔 Food Quality</option>
-            <option value="service">🛎️ Service</option>
-            <option value="cleanliness">🧹 Cleanliness</option>
-            <option value="pricing">💰 Pricing</option>
-            <option value="other">📌 Other</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-top:12px;">
-        <label style="font-weight:700;display:block;margin-bottom:4px;">Subject *</label>
-        <input type="text" id="compSubject" placeholder="Brief subject of your complaint" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;box-sizing:border-box;" />
-      </div>
-      <div style="margin-top:12px;">
-        <label style="font-weight:700;display:block;margin-bottom:4px;">Description *</label>
-        <textarea id="compDesc" placeholder="Describe your complaint or report in detail..." rows="5" style="width:100%;padding:12px;font-size:1rem;border:2px solid var(--border);border-radius:8px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
-      </div>
-      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
-        <button class="btn btn-save" id="submitComplaintBtn" onclick="submitComplaint()">📤 Submit Feedback</button>
-        <button class="btn btn-secondary" onclick="clearForm()">↩️ Clear</button>
-      </div>
+    <div style="text-align:center;padding:20px;background:#eff6ff;border:2px solid #93c5fd;border-radius:12px;margin-top:8px;">
+      <p style="font-size:1.1rem;font-weight:700;color:#1e40af;margin-bottom:8px;">📱 Scan QR Code to Submit Feedback</p>
+      <p style="color:#64748b;font-size:0.9rem;">Employees can submit feedback by scanning the QR code displayed in the canteen. All feedback submitted via QR appears below.</p>
+      <p style="color:#64748b;font-size:0.85rem;margin-top:8px;">🔗 <a href="/feedback" target="_blank" style="color:#2563eb;">Open QR Feedback Page</a></p>
     </div>
-
-    <div class="toast" id="toast">✅ Feedback Submitted!</div>
   </section>
 
   <!-- ═══════════════ COMPLAINTS LIST ═══════════════ -->
@@ -219,7 +177,26 @@
     (async function init() {
       const dRes = await fetch('/api/today');
       const d = await dRes.json();
-      showPasswordModal();
+      // Load complaints list (feedback from QR scans)
+      // Try password first - if auth fails, still try to load (public endpoint)
+      const storedPw = localStorage.getItem('adminPassword');
+      if (storedPw) {
+        try {
+          const verifyRes = await fetch('/api/password/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: storedPw }),
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.valid) {
+            authenticated = true;
+            loadComplaints();
+            return;
+          }
+        } catch(e) {}
+      }
+      // No auth - try loading anyway (feedback is public)
+      loadComplaints();
     })();
 
     // ─── Password ───────────────────────────────────────────
@@ -264,75 +241,28 @@
       if (e.key === 'Enter') verifyPassword();
     });
 
-    // ─── Submit Complaint ───────────────────────────────────
-    async function submitComplaint() {
-      const name = document.getElementById('compName').value.trim();
-      const phone = document.getElementById('compPhone').value.trim();
-      const dept = document.getElementById('compDept').value;
-      const cat = document.getElementById('compCategory').value;
-      const subject = document.getElementById('compSubject').value.trim();
-      const desc = document.getElementById('compDesc').value.trim();
-
-      if (!name) { alert('Please enter your name'); return; }
-      if (!subject) { alert('Please enter a subject'); return; }
-      if (!desc) { alert('Please enter a description'); return; }
-
-      const btn = document.getElementById('submitComplaintBtn');
-      btn.disabled = true;
-      btn.textContent = 'Submitting...';
-
-      try {
-        const res = await fetch('/api/complaints', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            employee_name: name,
-            phone_number: phone,
-            department: dept,
-            category: cat,
-            subject: subject,
-            description: desc
-          })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast('✅ Complaint submitted successfully!');
-          clearForm();
-          loadComplaints();
-        } else {
-          alert(data.error || 'Error submitting complaint');
-        }
-      } catch (err) {
-        alert('Error submitting complaint');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '📤 Submit Complaint';
-      }
-    }
-
-    function clearForm() {
-      document.getElementById('compName').value = '';
-      document.getElementById('compPhone').value = '';
-      document.getElementById('compDept').value = '';
-      document.getElementById('compCategory').value = 'general';
-      document.getElementById('compSubject').value = '';
-      document.getElementById('compDesc').value = '';
-    }
-
     // ─── Load Complaints ────────────────────────────────────
     async function loadComplaints() {
-      const status = document.getElementById('statusFilter').value;
-      const cat = document.getElementById('catFilter').value;
+      const status = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : 'all';
+      const cat = document.getElementById('catFilter') ? document.getElementById('catFilter').value : 'all';
       const params = new URLSearchParams();
       if (status !== 'all') params.append('status', status);
       if (cat !== 'all') params.append('category', cat);
 
       try {
+        // Use regular fetch (not wrapped) to avoid auth redirect
         const res = await fetch(`/api/complaints?${params}`);
-        allComplaints = await res.json();
-        renderComplaints();
+        if (res.ok) {
+          allComplaints = await res.json();
+          renderComplaints();
+        } else {
+          allComplaints = [];
+          renderComplaints();
+        }
       } catch (err) {
         console.error('Error loading complaints:', err);
+        allComplaints = [];
+        renderComplaints();
       }
     }
 
@@ -397,6 +327,10 @@
 
     async function saveReply() {
       if (!replyingToId) return;
+      if (!authenticated) {
+        showToast('⚠️ Please login to reply');
+        return;
+      }
       const status = document.getElementById('replyStatus').value;
       const reply = document.getElementById('replyText').value;
 
@@ -406,14 +340,20 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status, admin_reply: reply })
         });
-        const data = await res.json();
-        if (data.success) {
-          closeReplyModal();
-          showToast('✅ Reply saved!');
-          loadComplaints();
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            closeReplyModal();
+            showToast('✅ Reply saved!');
+            loadComplaints();
+          } else {
+            showToast('❌ ' + (data.error || 'Error saving reply'));
+          }
+        } else {
+          showToast('❌ Error saving reply (authentication required)');
         }
       } catch (err) {
-        alert('Error saving reply');
+        showToast('❌ Network error saving reply');
       }
     }
 
