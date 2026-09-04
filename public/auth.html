@@ -162,7 +162,12 @@
           localStorage.setItem('adminPassword', password);
           localStorage.setItem('adminLoginTime', String(Date.now()));
           localStorage.setItem('adminUser', JSON.stringify(data.user));
-          window.location.href = '/';
+          // Developer goes to developer page, others to entry page
+          if (data.user && data.user.role === 'DEVELOPER') {
+            window.location.href = '/developer';
+          } else {
+            window.location.href = '/';
+          }
         } else if (data.status === 'pending') {
           showError('⏳ Your account is pending approval.\n\nPlease wait for the developer to approve your account before you can login.');
         } else if (data.status === 'paused') {
@@ -237,7 +242,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: storedEmail, password: storedPw }),
       }).then(r => r.json()).then(data => {
-        if (data.valid) window.location.href = '/';
+        if (data.valid) {
+          const user = data.user || {};
+          if (user.role === 'DEVELOPER') window.location.href = '/developer';
+          else window.location.href = '/';
+        }
       }).catch(() => {});
     }
   </script>

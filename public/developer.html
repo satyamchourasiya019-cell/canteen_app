@@ -14,18 +14,14 @@
 </head>
 <body>
   <header class="top-bar">
-    <h1>🍽️ Digital Canteen Book</h1>
+    <h1>🛠️ Developer Panel</h1>
     <nav>
       <a href="/" class="nav-btn">👨‍💼 Employee</a>
-      <a href="/payment" class="nav-btn">💰 Payment</a>
-      <a href="/records" class="nav-btn">📋 All Records</a>
-      <a href="/pending" class="nav-btn">⏳ Pending</a>
-      <a href="/online-orders" class="nav-btn">📱 Online Orders</a>
-      <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
-      <a href="/complaints" class="nav-btn">⭐ Feedback</a>
+      <a href="/online-orders" class="nav-btn">📱 Orders</a>
       <a href="/settings" class="nav-btn">⚙️ Settings</a>
       <a href="/subscription" class="nav-btn">💳 Subscription</a>
       <a href="/developer" class="nav-btn active">🛠️ Developer</a>
+      <a href="/auth" class="nav-btn" id="logoutBtn" onclick="doLogout()" style="color:var(--danger);">🚪 Logout</a>
     </nav>
   </header>
 
@@ -38,10 +34,33 @@
       <div style="font-size:4rem;margin-bottom:16px;">🔒</div>
       <h2 style="color:var(--danger);margin-bottom:8px;">Access Denied</h2>
       <p style="color:var(--text-light);">You need Developer access to view this page.</p>
-      <a href="/" class="btn btn-primary" style="margin-top:20px;display:inline-block;">← Back to Dashboard</a>
+      <p style="color:var(--text-light);margin-top:8px;">Login with: <strong>sattu@developer.com</strong></p>
+      <a href="/auth" class="btn btn-primary" style="margin-top:20px;display:inline-block;">🔐 Go to Login</a>
     </div>
 
     <div id="developerContent" style="display:none;">
+
+      <!-- ═══════════ RAZORPAY CONFIG ═══════════ -->
+      <section class="card settings-card" style="margin-bottom:20px;">
+        <div class="section-header">
+          <h2>💳 Razorpay Configuration</h2>
+          <span id="rpStatus" style="padding:4px 12px;border-radius:16px;font-size:0.8rem;font-weight:700;">Checking...</span>
+        </div>
+        <p class="hint-text">Configure Razorpay payment gateway for the subscription system. Your Key Secret is stored securely on the server.</p>
+        <div style="margin-top:16px;">
+          <div class="field-group" style="margin-bottom:12px;">
+            <label style="font-weight:700;font-size:0.85rem;">RAZORPAY KEY ID</label>
+            <input type="text" id="rpKeyId" placeholder="rzp_test_xxxxxxxxxxxxx" style="width:100%;padding:12px;font-size:0.95rem;border:2px solid var(--border);border-radius:8px;font-family:monospace;margin-top:4px;" />
+          </div>
+          <div class="field-group" style="margin-bottom:12px;">
+            <label style="font-weight:700;font-size:0.85rem;">RAZORPAY KEY SECRET</label>
+            <input type="password" id="rpKeySecret" placeholder="Enter key secret (stored securely)" style="width:100%;padding:12px;font-size:0.95rem;border:2px solid var(--border);border-radius:8px;font-family:monospace;margin-top:4px;" />
+          </div>
+          <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:12px;">⚠️ Get keys from <a href="https://dashboard.razorpay.com/app/keys" target="_blank" style="color:var(--primary);">Razorpay Dashboard → API Keys</a>. Secret is never shared with anyone.</p>
+          <button onclick="saveRazorpayConfig()" id="saveRpBtn" class="btn btn-primary" style="padding:12px 24px;">💾 Save Razorpay Configuration</button>
+          <p id="rpMsg" style="margin-top:10px;font-size:0.85rem;display:none;"></p>
+        </div>
+      </section>
 
       <!-- ═══════════ PENDING APPROVALS ═══════════ -->
       <section class="card settings-card" style="margin-bottom:20px;" id="pendingSection">
@@ -77,7 +96,7 @@
             <button class="btn btn-secondary btn-sm" onclick="loadAllUsers()">🔄 Refresh</button>
           </div>
         </div>
-        <p class="hint-text">Manage all registered users. You can approve, pause, resume, or remove users.</p>
+        <p class="hint-text">Manage all registered users. Approve, pause, resume, or remove users.</p>
 
         <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
           <select id="roleFilter" onchange="renderAllUsers()" style="padding:8px 12px;font-size:0.9rem;border:2px solid var(--border);border-radius:8px;">
@@ -192,17 +211,125 @@
 
     // ─── Init ───────────────────────────────────────────────
     (async function init() {
-      const user = window.CanteenAuth?.getUser?.();
-      if (!user || user.role !== 'DEVELOPER') {
+      // Check if logged in and is developer
+      const email = localStorage.getItem('adminEmail') || '';
+      const password = localStorage.getItem('adminPassword') || '';
+      const user = JSON.parse(localStorage.getItem('adminUser') || 'null');
+
+      // If not logged in, show access denied
+      if (!email || !password) {
         document.getElementById('accessDenied').style.display = 'block';
         return;
       }
+
+      // If logged in but not developer, show access denied
+      if (!user || user.role !== 'DEVELOPER') {
+        // Also check via verify
+        try {
+          const res = await fetch('/api/users/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (data.valid && data.user && data.user.role === 'DEVELOPER') {
+            localStorage.setItem('adminUser', JSON.stringify(data.user));
+            document.getElementById('developerContent').style.display = 'block';
+            await loadRazorpayConfig();
+            await loadPendingUsers();
+            await loadAllUsers();
+            return;
+          }
+        } catch(e) {}
+        document.getElementById('accessDenied').style.display = 'block';
+        return;
+      }
+
+      // Developer access confirmed
       document.getElementById('developerContent').style.display = 'block';
+      await loadRazorpayConfig();
       await loadPendingUsers();
       await loadAllUsers();
     })();
 
-    // ─── Load Pending Users ─────────────────────────────────
+    function doLogout() {
+      localStorage.removeItem('adminEmail');
+      localStorage.removeItem('adminPassword');
+      localStorage.removeItem('adminUser');
+      localStorage.removeItem('adminLoginTime');
+      window.location.href = '/auth';
+    }
+
+    // ═══════════ RAZORPAY CONFIG ═══════════
+    async function loadRazorpayConfig() {
+      try {
+        const res = await fetch('/api/razorpay/config');
+        const data = await res.json();
+        const statusEl = document.getElementById('rpStatus');
+        if (data.keySecretSet) {
+          statusEl.textContent = '✅ Configured';
+          statusEl.style.background = '#d1fae5';
+          statusEl.style.color = '#065f46';
+          document.getElementById('rpKeyId').value = data.keyId || '';
+          document.getElementById('rpKeySecret').placeholder = '•••••••• (already set)';
+        } else {
+          statusEl.textContent = '⚠️ Not Configured';
+          statusEl.style.background = '#fef3c7';
+          statusEl.style.color = '#92400e';
+          document.getElementById('rpKeyId').value = data.keyId || '';
+        }
+      } catch(e) {
+        document.getElementById('rpStatus').textContent = '⚠️ Could not check';
+        document.getElementById('rpStatus').style.background = '#fef3c7';
+        document.getElementById('rpStatus').style.color = '#92400e';
+      }
+    }
+
+    async function saveRazorpayConfig() {
+      const keyId = document.getElementById('rpKeyId').value.trim();
+      const keySecret = document.getElementById('rpKeySecret').value.trim();
+      const msg = document.getElementById('rpMsg');
+      const btn = document.getElementById('saveRpBtn');
+
+      if (!keyId || !keySecret) {
+        msg.textContent = '❌ Please enter both Key ID and Key Secret';
+        msg.style.display = 'block';
+        msg.style.color = 'var(--danger)';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Saving...';
+
+      try {
+        const res = await fetch('/api/razorpay/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyId, keySecret }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          msg.textContent = '✅ Razorpay configured successfully!';
+          msg.style.display = 'block';
+          msg.style.color = 'var(--accent)';
+          document.getElementById('rpKeySecret').value = '';
+          document.getElementById('rpKeySecret').placeholder = '•••••••• (already set)';
+          await loadRazorpayConfig();
+        } else {
+          msg.textContent = '❌ ' + (data.error || 'Failed');
+          msg.style.display = 'block';
+          msg.style.color = 'var(--danger)';
+        }
+      } catch(e) {
+        msg.textContent = '❌ Network error';
+        msg.style.display = 'block';
+        msg.style.color = 'var(--danger)';
+      }
+      btn.disabled = false;
+      btn.textContent = '💾 Save Razorpay Configuration';
+    }
+
+    // ═══════════ PENDING USERS ═══════════
     async function loadPendingUsers() {
       try {
         const res = await fetch('/api/users/pending');
@@ -210,9 +337,7 @@
           pendingUsers = await res.json();
           renderPendingUsers();
         }
-      } catch (e) {
-        console.error('Error loading pending users:', e);
-      }
+      } catch(e) {}
     }
 
     function renderPendingUsers() {
@@ -238,7 +363,7 @@
       tbody.innerHTML = html;
     }
 
-    // ─── Load All Users ─────────────────────────────────────
+    // ═══════════ ALL USERS ═══════════
     async function loadAllUsers() {
       try {
         const res = await fetch('/api/users/all');
@@ -246,9 +371,7 @@
           allUsers = await res.json();
           renderAllUsers();
         }
-      } catch (e) {
-        console.error('Error loading users:', e);
-      }
+      } catch(e) {}
     }
 
     function renderAllUsers() {
@@ -272,7 +395,7 @@
         html += `<tr style="${!isActive ? 'opacity:0.6;' : ''}">
           <td>${i + 1}</td>
           <td style="font-weight:600;">${u.name || '—'}</td>
-          <td>${u.email}</td>
+          <td style="font-size:0.85rem;">${u.email}</td>
           <td><span style="${roleStyle}padding:4px 12px;border-radius:12px;font-size:0.75rem;font-weight:700;">${u.role}</span></td>
           <td><span style="color:${statusColor};font-weight:700;text-transform:capitalize;">${u.status || '—'}</span></td>
           <td>${isActive ? '✅' : '⏸️'}</td>
@@ -287,7 +410,7 @@
                 <option value="ADMIN" ${u.role==='ADMIN'?'selected':''}>Admin</option>
                 <option value="CANTEEN_STAFF" ${u.role==='CANTEEN_STAFF'?'selected':''}>Staff</option>
               </select>
-              ${u.role !== 'DEVELOPER' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.email}')">🗑️</button>` : ''}
+              ${u.email !== 'sattu@developer.com' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.email}')">🗑️</button>` : ''}
             </div>
           </td>
         </tr>`;
@@ -300,14 +423,9 @@
       try {
         const res = await fetch('/api/users/approve/' + encodeURIComponent(email), { method: 'POST' });
         const data = await res.json();
-        if (data.success) {
-          showToast('✅ User approved: ' + email);
-          await loadPendingUsers();
-          await loadAllUsers();
-        } else {
-          showToast('❌ ' + (data.error || 'Failed'));
-        }
-      } catch (e) { showToast('❌ Network error'); }
+        if (data.success) { showToast('✅ User approved: ' + email); await loadPendingUsers(); await loadAllUsers(); }
+        else showToast('❌ ' + (data.error || 'Failed'));
+      } catch(e) { showToast('❌ Network error'); }
     }
 
     async function rejectUser(email) {
@@ -315,34 +433,24 @@
       try {
         const res = await fetch('/api/users/reject/' + encodeURIComponent(email), { method: 'POST' });
         const data = await res.json();
-        if (data.success) {
-          showToast('❌ User rejected: ' + email);
-          await loadPendingUsers();
-          await loadAllUsers();
-        }
-      } catch (e) { showToast('❌ Network error'); }
+        if (data.success) { showToast('❌ User rejected: ' + email); await loadPendingUsers(); await loadAllUsers(); }
+      } catch(e) { showToast('❌ Network error'); }
     }
 
     async function pauseUser(email) {
       try {
         const res = await fetch('/api/users/pause/' + encodeURIComponent(email), { method: 'POST' });
         const data = await res.json();
-        if (data.success) {
-          showToast('⏸️ User paused: ' + email);
-          await loadAllUsers();
-        }
-      } catch (e) { showToast('❌ Network error'); }
+        if (data.success) { showToast('⏸️ User paused: ' + email); await loadAllUsers(); }
+      } catch(e) { showToast('❌ Network error'); }
     }
 
     async function resumeUser(email) {
       try {
         const res = await fetch('/api/users/resume/' + encodeURIComponent(email), { method: 'POST' });
         const data = await res.json();
-        if (data.success) {
-          showToast('▶️ User resumed: ' + email);
-          await loadAllUsers();
-        }
-      } catch (e) { showToast('❌ Network error'); }
+        if (data.success) { showToast('▶️ User resumed: ' + email); await loadAllUsers(); }
+      } catch(e) { showToast('❌ Network error'); }
     }
 
     async function deleteUser(email) {
@@ -350,28 +458,19 @@
       try {
         const res = await fetch('/api/users/delete/' + encodeURIComponent(email), { method: 'POST' });
         const data = await res.json();
-        if (data.success) {
-          showToast('🗑️ User deleted: ' + email);
-          await loadAllUsers();
-        } else {
-          showToast('❌ ' + (data.error || 'Cannot delete'));
-        }
-      } catch (e) { showToast('❌ Network error'); }
+        if (data.success) { showToast('🗑️ User deleted: ' + email); await loadAllUsers(); }
+        else showToast('❌ ' + (data.error || 'Cannot delete'));
+      } catch(e) { showToast('❌ Network error'); }
     }
 
     async function changeRole(email, role) {
       try {
         const res = await fetch('/api/users/role/' + encodeURIComponent(email), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }),
         });
         const data = await res.json();
-        if (data.success) {
-          showToast('✅ Role updated to ' + role);
-          await loadAllUsers();
-        }
-      } catch (e) { showToast('❌ Network error'); }
+        if (data.success) { showToast('✅ Role updated to ' + role); await loadAllUsers(); }
+      } catch(e) { showToast('❌ Network error'); }
     }
 
     // ─── Quick Actions ──────────────────────────────────────
@@ -379,14 +478,10 @@
       if (!confirm('Approve ALL pending users?')) return;
       let count = 0;
       for (const u of pendingUsers) {
-        try {
-          await fetch('/api/users/approve/' + encodeURIComponent(u.email), { method: 'POST' });
-          count++;
-        } catch(e) {}
+        try { await fetch('/api/users/approve/' + encodeURIComponent(u.email), { method: 'POST' }); count++; } catch(e) {}
       }
       showToast('✅ ' + count + ' user(s) approved');
-      await loadPendingUsers();
-      await loadAllUsers();
+      await loadPendingUsers(); await loadAllUsers();
     }
 
     async function pauseAllNonDev() {
@@ -394,10 +489,7 @@
       let count = 0;
       for (const u of allUsers) {
         if (u.role !== 'DEVELOPER' && u.active !== false) {
-          try {
-            await fetch('/api/users/pause/' + encodeURIComponent(u.email), { method: 'POST' });
-            count++;
-          } catch(e) {}
+          try { await fetch('/api/users/pause/' + encodeURIComponent(u.email), { method: 'POST' }); count++; } catch(e) {}
         }
       }
       showToast('⏸️ ' + count + ' user(s) paused');
@@ -409,10 +501,7 @@
       let count = 0;
       for (const u of allUsers) {
         if (u.active === false) {
-          try {
-            await fetch('/api/users/resume/' + encodeURIComponent(u.email), { method: 'POST' });
-            count++;
-          } catch(e) {}
+          try { await fetch('/api/users/resume/' + encodeURIComponent(u.email), { method: 'POST' }); count++; } catch(e) {}
         }
       }
       showToast('▶️ ' + count + ' user(s) resumed');
@@ -423,11 +512,9 @@
       const data = JSON.stringify(allUsers, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
+      const a = document.createElement('a'); a.href = url;
       a.download = 'users-export-' + new Date().toISOString().substring(0, 10) + '.json';
-      a.click();
-      URL.revokeObjectURL(url);
+      a.click(); URL.revokeObjectURL(url);
       showToast('✅ User data exported!');
     }
 
@@ -440,52 +527,32 @@
       document.getElementById('addUserModal').style.display = 'flex';
       document.getElementById('addName').focus();
     }
-
-    function closeAddUserModal() {
-      document.getElementById('addUserModal').style.display = 'none';
-    }
+    function closeAddUserModal() { document.getElementById('addUserModal').style.display = 'none'; }
 
     async function addNewUser() {
       const name = document.getElementById('addName').value.trim();
       const email = document.getElementById('addEmail').value.trim();
       const password = document.getElementById('addPassword').value;
       const role = document.getElementById('addRole').value;
-
       if (!name || !email || !password) { alert('All fields required'); return; }
       if (password.length < 4) { alert('Password must be at least 4 characters'); return; }
 
       try {
-        // Register the user
         const regRes = await fetch('/api/users/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, name }),
         });
         const regData = await regRes.json();
-
         if (regData.success || regData.error === 'Email already registered') {
-          // If already registered, just approve
-          if (regData.error === 'Email already registered') {
-            await fetch('/api/users/approve/' + encodeURIComponent(email), { method: 'POST' });
-          }
-          // Set role
           await fetch('/api/users/role/' + encodeURIComponent(email), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role }),
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }),
           });
-          // Approve
           await fetch('/api/users/approve/' + encodeURIComponent(email), { method: 'POST' });
           closeAddUserModal();
           showToast('✅ User added: ' + email);
-          await loadPendingUsers();
-          await loadAllUsers();
-        } else {
-          alert(regData.error || 'Failed to add user');
-        }
-      } catch (e) {
-        alert('Network error');
-      }
+          await loadPendingUsers(); await loadAllUsers();
+        } else { alert(regData.error || 'Failed to add user'); }
+      } catch(e) { alert('Network error'); }
     }
 
     // ─── Toast ──────────────────────────────────────────────
