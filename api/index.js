@@ -87,7 +87,7 @@ function dualAuth(req, res, next) {
   // No auth at all
   return res.status(401).json({ error: 'Authentication required' });
 }
-const { orderLimiter, publicReadLimiter, apiLimiter } = require('../security/rateLimit');
+const { orderLimiter, publicReadLimiter, apiLimiter, authLimiter } = require('../security/rateLimit');
 const { validateEntry, validateOrder, validateSerialRegister, validatePayment, validateMenu, validateComplaint } = require('../security/validation');
 const { initAudit, auditMiddleware, ACTIONS } = require('../security/audit');
 
