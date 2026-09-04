@@ -7,8 +7,18 @@ const app = express();
 const PORT = 3456;
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+
+// Security Headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 // Multer for Excel uploads (stored in memory)
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -326,29 +336,36 @@ app.post('/api/prices', (req, res) => {
 });
 
 // ─── API: Get / Update password ───────────────────────────────────
+// SECURITY: Password endpoint returns masked value (never the actual password)
 app.get('/api/password', (_req, res) => {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
-  res.json({ password: row ? String(row.value) : '0' });
+  res.json({ password: '•••••' });
 });
 
+// SECURITY: Password change requires current password verification
 app.post('/api/password', (req, res) => {
-  const { password } = req.body;
+  const { password, currentPassword } = req.body;
   if (password === undefined || password === null) {
     return res.status(400).json({ error: 'Password required' });
   }
+  if (!currentPassword) {
+    return res.status(400).json({ error: 'Current password required' });
+  }
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
+  const storedPw = row ? String(row.value) : '988388';
+  if (String(currentPassword) !== storedPw) {
+    return res.status(403).json({ error: 'Current password is incorrect' });
+  }
+  if (String(password).length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-    .run('password', password);
-  res.json({ success: true, message: 'Password updated. All pages now use the new password.' });
+    .run('password', String(password));
+  res.json({ success: true });
 });
 
+// SECURITY: Never return the actual password hint
 app.get('/api/password/default', (_req, res) => {
-  try {
-    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
-    const storedPw = row ? String(row.value) : '988388';
-    res.json({ default: storedPw });
-  } catch (err) {
-    res.json({ default: '988388' });
-  }
+  res.json({ default: '********', hint: 'Contact admin to reset password' });
 });
 
 app.post('/api/password/reset', (req, res) => {
@@ -381,12 +398,8 @@ app.post('/api/password/verify', (req, res) => {
     }
   } catch (err) {
     console.error('Password verify error:', err.message);
-    // Fallback: allow default password if DB is unavailable
-    if (String(req.body.password) === '988388') {
-      res.json({ valid: true });
-    } else {
-      res.status(500).json({ valid: false, error: 'Auth service unavailable' });
-    }
+    // SECURITY: Never allow hardcoded fallback password
+    res.status(500).json({ valid: false, error: 'Auth service unavailable' });
   }
 });
 

@@ -34,8 +34,7 @@ async function verifyAdminPassword(req, res, next) {
         let passwordMatch = false;
         if (user.password && hashedInput === user.password) passwordMatch = true;
         else if (String(pwHeader) === String(user.password)) passwordMatch = true;
-        // Default developer bypass
-        if (!passwordMatch && emailLower === 'sattu@developer.com' && String(pwHeader) === 'developer@2026') passwordMatch = true;
+        // SECURITY: No hardcoded bypass - only stored password hash is accepted
         if (passwordMatch) {
           const { password: _, ...safeUser } = user;
           req.user = { uid: emailLower, role: safeUser.role || 'ADMIN', name: safeUser.name || 'Admin', email: emailLower, permissions: [] };
@@ -105,6 +104,14 @@ app.use((_req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  // Prevent caching of sensitive responses
+  if (_req.path && (_req.path.includes('/password') || _req.path.includes('/users/'))) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+  }
   next();
 });
 
@@ -392,7 +399,7 @@ function sendSSE(event, data) {
 //  ADMIN API PROTECTION MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════════
 // Public endpoints that do NOT require authentication
-const PUBLIC_GET_PATHS = ['/today', '/prices', '/menu/available', '/booking-open', '/serial-register/lookup', '/password', '/password/default', '/serial-register/stats/all', '/menu', '/razorpay/config'];
+const PUBLIC_GET_PATHS = ['/today', '/prices', '/menu/available', '/booking-open', '/serial-register/lookup', '/serial-register/stats/all', '/menu', '/razorpay/config'];
 const PUBLIC_POST_PATHS = ['/orders', '/complaints', '/password/verify', '/feedback'];
 
 app.use('/api', (req, res, next) => {
@@ -429,21 +436,20 @@ app.use('/api', (req, res, next) => {
   if (req.method === 'GET' && path === '/subscription') return next();
   if (req.method === 'GET' && path === '/subscription/check') return next();
 
-  // Allow password reset for lockout recovery
-  if (req.method === 'POST' && path === '/password/reset') return next();
+  // Password reset requires auth (was public - SECURITY FIX)
+  // No longer allowing unauthenticated password reset
 
-  // Allow user authentication endpoints (public)
-  if (req.method === 'POST' && path === '/users/register') return next();
+  // User auth endpoints (public)
   if (req.method === 'POST' && path === '/users/login') return next();
+  if (req.method === 'POST' && path === '/users/register') return next();
   if (req.method === 'POST' && path === '/users/verify') return next();
-  if (req.method === 'GET' && path === '/users/pending') return next();
-  if (req.method === 'GET' && path === '/users/all') return next();
-  if (req.method === 'POST' && path.startsWith('/users/approve/')) return next();
-  if (req.method === 'POST' && path.startsWith('/users/reject/')) return next();
-  if (req.method === 'POST' && path.startsWith('/users/pause/')) return next();
-  if (req.method === 'POST' && path.startsWith('/users/resume/')) return next();
-  if (req.method === 'POST' && path.startsWith('/users/delete/')) return next();
-  if (req.method === 'POST' && path.startsWith('/users/role/')) return next();
+
+  // User management endpoints - DEVELOPER AUTH REQUIRED
+  const isUserMgmt = (req.method === 'GET' && (path === '/users/pending' || path === '/users/all')) ||
+    (req.method === 'POST' && (path.startsWith('/users/approve/') || path.startsWith('/users/reject/') ||
+    path.startsWith('/users/pause/') || path.startsWith('/users/resume/') ||
+    path.startsWith('/users/delete/') || path.startsWith('/users/role/')));
+  if (isUserMgmt) return dualAuth(req, res, next);
 
   // Allow public serial-register single entry lookup
   if (req.method === 'GET' && /^\/serial-register\/\d+/.test(path)) return next();
@@ -540,20 +546,18 @@ app.get('/api/password', async (_req, res) => {
   res.json({ password: '•••••' });
 });
 
-// ─── Public: Get default password hint (for first-time setup) ──
+// ─── Get password hint (NEVER returns actual password) ──
 app.get('/api/password/default', async (_req, res) => {
-  try {
-    const row = await getDocById(C.settings, 'password');
-    const storedPw = row ? String(row.value) : '988388';
-    res.json({ default: storedPw });
-  } catch (err) {
-    res.json({ default: '988388' });
-  }
+  // SECURITY: Never return the actual stored password
+  res.json({ default: '********', hint: 'Contact admin to reset password' });
 });
 
 app.post('/api/password', async (req, res) => {
   const { password } = req.body;
   if (password === undefined || password === null) return res.status(400).json({ error: 'Password required' });
+  if (typeof password !== 'string' || password.length < 4 || password.length > 128) {
+    return res.status(400).json({ error: 'Password must be 4-128 characters' });
+  }
   // Get previous value for audit
   const prevPw = await getDocById(C.settings, 'password');
   await setDocData(C.settings, 'password', { key: 'password', value: String(password) });
@@ -575,12 +579,8 @@ app.post('/api/password/verify', async (req, res) => {
     }
   } catch (err) {
     console.error('Password verify error:', err.message);
-    // Fallback: allow default password if DB is unavailable
-    if (String(req.body.password) === '988388') {
-      res.json({ valid: true });
-    } else {
-      res.status(500).json({ valid: false, error: 'Auth service unavailable' });
-    }
+    // SECURITY: Never allow hardcoded fallback password
+    res.status(500).json({ valid: false, error: 'Auth service unavailable' });
   }
 });
 
@@ -1572,12 +1572,13 @@ async function seedDefaultDeveloper() {
 }
 
 // ─── User Register ─────────────────────────────────────────
-app.post('/api/users/register', async (req, res) => {
+app.post('/api/users/register', authLimiter, async (req, res) => {
   try {
     const { email, password, name } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-    if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
-    if (!email.includes('@')) return res.status(400).json({ error: 'Invalid email format' });
+    if (typeof password !== 'string' || password.length < 4 || password.length > 128) return res.status(400).json({ error: 'Password must be 4-128 characters' });
+    if (typeof email !== 'string' || !email.includes('@') || email.length > 254) return res.status(400).json({ error: 'Invalid email format' });
+    if (name && (typeof name !== 'string' || name.length > 200)) return res.status(400).json({ error: 'Invalid name' });
 
     const emailLower = email.toLowerCase().trim();
     const existing = await getDocById(C.users, emailLower);
@@ -1602,7 +1603,7 @@ app.post('/api/users/register', async (req, res) => {
 });
 
 // ─── User Login ────────────────────────────────────────────
-app.post('/api/users/login', async (req, res) => {
+app.post('/api/users/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -1642,13 +1643,7 @@ app.post('/api/users/login', async (req, res) => {
       await updateDocData(C.users, emailLower, { password: hashedInput, updatedAt: nowStr() });
     }
 
-    if (!passwordMatch) {
-      // Last resort: check default developer credentials
-      if (emailLower === 'sattu@developer.com' && password === 'developer@2026') {
-        passwordMatch = true;
-        await updateDocData(C.users, emailLower, { password: hashPassword(password), updatedAt: nowStr() });
-      }
-    }
+    // SECURITY: No hardcoded bypass - only stored password is accepted
 
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -1671,7 +1666,7 @@ app.post('/api/users/login', async (req, res) => {
 });
 
 // ─── User Verify (for auth.js) ─────────────────────────────
-app.post('/api/users/verify', async (req, res) => {
+app.post('/api/users/verify', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(401).json({ valid: false });
@@ -1688,10 +1683,7 @@ app.post('/api/users/verify', async (req, res) => {
     } else if (password === user.password) {
       passwordMatch = true;
     }
-    // Default developer bypass
-    if (!passwordMatch && emailLower === 'sattu@developer.com' && password === 'developer@2026') {
-      passwordMatch = true;
-    }
+    // SECURITY: No hardcoded bypass - only stored password is accepted
 
     if (!passwordMatch) return res.status(401).json({ valid: false });
     if (user.active === false) return res.status(403).json({ valid: false, error: 'Account paused' });

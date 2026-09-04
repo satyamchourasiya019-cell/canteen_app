@@ -514,7 +514,9 @@
       if (data.booking_open) {
         el.innerHTML = `<span style="color:#059669;font-weight:700;">✅ OPEN</span> — From ${data.start_time} to ${data.end_time}`;
       } else {
-        el.innerHTML = `<span style="color:#dc2626;font-weight:700;">🔴 CLOSED</span> — ${data.closed_message || 'Booking is closed'}`;
+        // SECURITY: Sanitize user-provided message before rendering
+        const safeMsg = (data.closed_message || 'Booking is closed').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+        el.innerHTML = `<span style="color:#dc2626;font-weight:700;">🔴 CLOSED</span> — ${safeMsg}`;
       }
     }
 

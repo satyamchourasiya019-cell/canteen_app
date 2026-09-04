@@ -54,6 +54,7 @@
     .no-orders-msg{text-align:center;padding:40px 20px;color:var(--text-light);font-style:italic}
     .sound-toggle{display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;color:var(--text-light);cursor:pointer}
     @media(max-width:640px){.order-card-info{grid-template-columns:1fr}.order-actions{flex-direction:column}.filter-tabs{gap:6px}.filter-tab{padding:8px 14px;font-size:0.8rem}}
+    @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
   </style>
   <script src="/auth.js"></script>
 </head>
@@ -63,7 +64,7 @@
     <nav>
       <a href="/" class="nav-btn">👨‍💼 Employee</a>
       <a href="/payment" class="nav-btn">💰 Payment</a>
-      <a href="/online-orders" class="nav-btn active">📱 Online Orders</a>
+      <a href="/online-orders" class="nav-btn active" style="position:relative;">📱 Online Orders<span class="order-badge" id="orderBadge" style="display:none;position:absolute;top:-8px;right:-8px;background:#dc2626;color:#fff;border-radius:50%;min-width:22px;height:22px;font-size:0.75rem;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 8px rgba(220,38,38,0.5);animation:badgePulse 1.5s ease-in-out infinite;"></span></a>
       <a href="/records" class="nav-btn">📋 All Records</a>
       <a href="/pending" class="nav-btn">⏳ Pending</a>
       <a href="/serial-register" class="nav-btn">📇 Serial Register</a>
@@ -78,6 +79,7 @@
 
   <div class="notif-bar" id="notifBar">
     🔔 <span id="notifText">New order received!</span>
+    <button onclick="clearOrderBadge()" style="background:rgba(255,255,255,0.3);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;">✅ Clear</button>
     <button onclick="document.getElementById('notifBar').classList.remove('show')" style="background:rgba(255,255,255,0.3);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;">✕ Dismiss</button>
   </div>
 
@@ -121,6 +123,7 @@
     let eventSource = null;
     let previousOrderCount = 0;
     let pollingInterval = null;
+    let newOrderCount = 0;
 
     (async function init() {
       const dRes = await fetch('/api/today');
@@ -222,6 +225,12 @@
       renderOrders(filtered);
     }
 
+    // XSS protection: escape HTML entities
+    function escHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     function renderOrders(orders) {
       const c = document.getElementById('ordersList');
       if (!orders.length) { c.innerHTML = '<div class="no-orders-msg">📭 No orders found.</div>'; return; }
@@ -238,13 +247,13 @@
             <span class="order-time">🕐 ${time}</span>
           </div>
           <div class="order-card-info">
-            <div class="order-info-item"><span class="order-info-label">Employee Name</span><span class="order-info-value">${o.employee_name||'—'}</span></div>
-            <div class="order-info-item"><span class="order-info-label">Phone Number</span><span class="order-info-value">${o.phone_number||'—'}</span></div>
-            <div class="order-info-item"><span class="order-info-label">Department</span><span class="order-info-value">${o.department||'—'}</span></div>
+            <div class="order-info-item"><span class="order-info-label">Employee Name</span><span class="order-info-value">${escHtml(o.employee_name)||'—'}</span></div>
+            <div class="order-info-item"><span class="order-info-label">Phone Number</span><span class="order-info-value">${escHtml(o.phone_number)||'—'}</span></div>
+            <div class="order-info-item"><span class="order-info-label">Department</span><span class="order-info-value">${escHtml(o.department)||'—'}</span></div>
           </div>
           <div class="order-items-list">
             <h4>📋 Ordered Items</h4>
-            ${items.map(i => `<div class="order-item-row"><span class="order-item-name">${i.name||'—'}</span><span class="order-item-qty">× ${i.quantity||1}</span></div>`).join('')}
+            ${items.map(i => `<div class="order-item-row"><span class="order-item-name">${escHtml(i.name)||'—'}</span><span class="order-item-qty">× ${parseInt(i.quantity)||1}</span></div>`).join('')}
             <div class="order-total"><span style="font-weight:700">Total Amount</span><span class="order-total-amount">₹${(o.total_amount||0).toLocaleString('en-IN')}</span></div>
           </div>
           <div class="order-actions">
@@ -281,10 +290,42 @@
       } catch (e) { alert('Error updating status'); }
     }
 
+    function updateOrderBadge() {
+      const badge = document.getElementById('orderBadge');
+      if (newOrderCount > 0) {
+        badge.textContent = newOrderCount;
+        badge.style.display = 'flex';
+        // Update browser tab title
+        document.title = `(${newOrderCount}) Online Orders - Canteen`;
+      } else {
+        badge.style.display = 'none';
+        document.title = 'Digital Canteen Book – Online Orders';
+      }
+    }
+
+    function incrementOrderBadge() {
+      newOrderCount++;
+      updateOrderBadge();
+    }
+
+    function clearOrderBadge() {
+      newOrderCount = 0;
+      updateOrderBadge();
+      document.getElementById('notifBar').classList.remove('show');
+    }
+
+    // Click badge to clear
+    document.getElementById('orderBadge').addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearOrderBadge();
+    });
+
     function showNewOrderNotification(msgOrCount) {
       let text;
       if (typeof msgOrCount === 'number') {
         text = `🔔 ${msgOrCount} new order${msgOrCount>1?'s':''} received!`;
+        incrementOrderBadge();
       } else {
         text = `🔔 ${msgOrCount}`;
       }
@@ -331,6 +372,11 @@
       t.textContent = msg; t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 2500);
     }
+
+    // Reset badge counter when user clicks view order / navigates back
+    window.addEventListener('focus', () => {
+      // Keep the count but user can manually dismiss
+    });
   </script>
   <script src="/date-clock.js"></script>
   <script src="/notifications.js"></script>
