@@ -1482,11 +1482,11 @@ async function seedDefaultDeveloper() {
   try {
     const users = await getAll(C.users);
     if (users.length === 0) {
-      const defaultEmail = 'developer@canteen.com';
-      const defaultPw = 'admin123';
+      const defaultEmail = 'sattu@developer.com';
+      const defaultPw = 'admin@2026';
       await setDocData(C.users, defaultEmail, {
         email: defaultEmail,
-        name: 'Developer',
+        name: 'Satu (Developer)',
         password: hashPassword(defaultPw),
         role: 'DEVELOPER',
         status: 'approved',
