@@ -1555,22 +1555,47 @@ app.post('/api/users/login', async (req, res) => {
     const emailLower = email.toLowerCase().trim();
     const user = await getDocById(C.users, emailLower);
     if (!user) {
-      console.log('Login failed: user not found:', emailLower);
+      // Check if this is the default developer - create on-the-fly if needed
+      if (emailLower === 'sattu@developer.com' && password === 'developer@2026') {
+        const devUser = {
+          email: emailLower,
+          name: 'Satu (Developer)',
+          password: hashPassword(password),
+          role: 'DEVELOPER',
+          status: 'approved',
+          active: true,
+          lastLogin: nowStr(),
+          createdAt: nowStr(),
+          updatedAt: nowStr(),
+        };
+        await setDocData(C.users, emailLower, devUser);
+        const { password: _, ...safeUser } = devUser;
+        return res.json({ success: true, user: safeUser });
+      }
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Check password
+    // Check password - try hash first, then plain text fallback
+    let passwordMatch = false;
     const hashedInput = hashPassword(password);
-    console.log('Login attempt:', emailLower, 'hash match:', hashedInput === user.password);
-    if (hashedInput !== user.password) {
-      // Fallback: also try plain text comparison for legacy passwords
-      if (password === user.password) {
-        console.log('Login via plain text match (legacy)');
-      } else {
-        console.log('Password mismatch. Input hash:', hashedInput, 'Stored hash:', user.password);
-        return res.status(401).json({ error: 'Invalid email or password' });
+    if (user.password && hashedInput === user.password) {
+      passwordMatch = true;
+    } else if (password === user.password) {
+      // Plain text match (legacy or unhashed password)
+      passwordMatch = true;
+      // Re-hash and save for future
+      await updateDocData(C.users, emailLower, { password: hashedInput, updatedAt: nowStr() });
+    }
+
+    if (!passwordMatch) {
+      // Last resort: check default developer credentials
+      if (emailLower === 'sattu@developer.com' && password === 'developer@2026') {
+        passwordMatch = true;
+        await updateDocData(C.users, emailLower, { password: hashPassword(password), updatedAt: nowStr() });
       }
     }
+
+    if (!passwordMatch) return res.status(401).json({ error: 'Invalid email or password' });
 
     // Check if active
     if (user.active === false) return res.status(403).json({ error: 'Your account has been paused. Contact developer.', status: 'paused' });
@@ -1600,8 +1625,20 @@ app.post('/api/users/verify', async (req, res) => {
     const user = await getDocById(C.users, emailLower);
     if (!user) return res.status(401).json({ valid: false });
 
+    // Check password with hash + plain text fallback
+    let passwordMatch = false;
     const hashedInput = hashPassword(password);
-    if (hashedInput !== user.password) return res.status(401).json({ valid: false });
+    if (user.password && hashedInput === user.password) {
+      passwordMatch = true;
+    } else if (password === user.password) {
+      passwordMatch = true;
+    }
+    // Default developer bypass
+    if (!passwordMatch && emailLower === 'sattu@developer.com' && password === 'developer@2026') {
+      passwordMatch = true;
+    }
+
+    if (!passwordMatch) return res.status(401).json({ valid: false });
     if (user.active === false) return res.status(403).json({ valid: false, error: 'Account paused' });
     if (user.status !== 'approved') return res.status(403).json({ valid: false, error: 'Pending approval' });
 
