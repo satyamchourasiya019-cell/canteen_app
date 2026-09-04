@@ -1483,7 +1483,7 @@ async function seedDefaultDeveloper() {
     const users = await getAll(C.users);
     if (users.length === 0) {
       const defaultEmail = 'sattu@developer.com';
-      const defaultPw = 'admin@2026';
+      const defaultPw = 'developer@2026';
       await setDocData(C.users, defaultEmail, {
         email: defaultEmail,
         name: 'Satu (Developer)',
