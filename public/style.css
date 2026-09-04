@@ -294,8 +294,8 @@ nav {
 
 /* ─── Food Grid ─────────────────────────────────────────────── */
 .food-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-bottom: 20px;
 }
@@ -310,9 +310,6 @@ nav {
   align-items: center;
   gap: 8px;
   transition: border-color 0.2s;
-  flex: 1 1 auto;
-  min-width: 200px;
-  max-width: 100%;
 }
 
 .food-item:hover {
@@ -1134,6 +1131,13 @@ tfoot .total-cell {
 }
 
 /* ─── Responsive ────────────────────────────────────────────── */
+@media (max-width: 900px) and (min-width: 641px) {
+  .food-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
+
 @media (max-width: 640px) {
   .top-bar {
     flex-direction: column;
@@ -1148,13 +1152,11 @@ tfoot .total-cell {
   }
 
   .food-grid {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 
   .food-item {
-    min-width: 100%;
-    max-width: 100%;
     padding: 10px 12px;
   }
 
